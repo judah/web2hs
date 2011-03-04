@@ -28,6 +28,7 @@ import Language.Pascal.Syntax
     const           { TokConst }
     div		    { TokDiv }
     do		    { TokDo }
+    downto	    { TokDownto }
     else	    { TokElse }
     end		    { TokEnd }
     file            { TokFile }
@@ -46,6 +47,8 @@ import Language.Pascal.Syntax
     program	    { TokProgram }
     record	    { TokRecord }
     repeat	    { TokRepeat }
+    then            { TokThen }
+    to              { TokTo }
     type            { TokType }
     var		    { TokVar }
     while	    { TokWhile }
@@ -82,18 +85,33 @@ progParams
     : '(' commalist(ident) ')' { $2 }
     | {- empty -}           { [] }
 
-block: { [] }
 compoundStatement :: { [Statement] }
     -- note: I think the trailing semicolon on the last substatement
     -- is optional in Pascal, but tangle seems to always generate it.
     : begin semilist(statement) end { $2 }
 
+block :: { [Statement] }
+    : statement { [$1] }
+    | compoundStatement { $1 }
+
 statement :: { Statement }
     : varRef ":=" expr { AssignStmt $1 $3 }
+    | goto labelName { Goto $2 }
+    | if expr then block { IfStmt $2 $4 Nothing }
+    | if expr then block else block { IfStmt $2 $4 (Just $6) }
+    | for ident ":=" expr forDir expr do block
+                    { ForStmt $2 $4 $6 $5 $8 }
 
 varRef :: { VarReference }
     : ident { NameRef $1 }
     | ident '[' expr ']' { ArrayRef $1 $3 }
+
+labelName :: { Label }
+    : int { $1 }
+
+forDir :: { ForDir }
+    : to    { UpTo }
+    | downto { DownTo }
 
 declarations : list(declaration) { concat $1 }
 
@@ -106,7 +124,7 @@ declaration :: { [ Declaration] }
     | procedureDeclar ';' { [NewFunction $1] }
 
 labelDeclar :: { [Declaration] }
-    : label commalistNonempty(int) ';'  { fmap NewLabel $2 }
+    : label commalistNonempty(labelName) ';'  { fmap NewLabel $2 }
 
 constDeclar :: { [Declaration] }
     : const semilist(constAssign) { $2 }
@@ -170,20 +188,21 @@ expr :: { Expr }
     | expr div expr { BinOp $1 Div $3 }
     | expr mod expr { BinOp $1 Mod $3 }
     | constValue    { ConstExpr $1 }
+    | varRef { VarExpr $1 }
     | '(' expr ')' { $2 }
 
 ------
 -- Functions
 
 procedureDeclar :: { Function }
-    : procedure ident paramList ';' localVars blockOrForward
+    : procedure ident paramList ';' localVars functionBody
         { Function $2 $3 Nothing $5 $6 }
 
 functionDeclar :: { Function }
-    : function ident paramList ':' typeDescr ';' localVars blockOrForward
+    : function ident paramList ':' typeDescr ';' localVars functionBody
         { Function $2 $3 (Just $5) $7 $8 }
 
-blockOrForward :: { Maybe [Statement] }
+functionBody :: { Maybe [Statement] }
     : compoundStatement     { Just $1 }
     | forward   { Nothing }
 

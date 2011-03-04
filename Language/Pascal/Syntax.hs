@@ -19,10 +19,14 @@ data Program = Program {
 data Statement =
                AssignStmt {assignTarget :: VarReference, assignExpr :: Expr}
                | FuncCallStmt {funName :: Name, funcArgs :: [Name]}
+               | IfStmt { ifCond :: Expr, thenStmt :: Body,
+                            elseStmt :: Maybe Body }
                | ForStmt { loopVar :: Name, forStart, forEnd :: Expr,
+                        forDirection :: ForDir,
                         forBody :: Body}
                | WhileStmt { loopExpr :: Expr, loopBody :: Body}
                | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
+               | Goto Label
         deriving Show
 
 -- Unsure about these...
@@ -30,6 +34,8 @@ data VarReference = NameRef Name
                   | ArrayRef Name Expr
                 deriving Show
 
+data ForDir = UpTo | DownTo
+        deriving Show
 
 -- <statement> | BEGIN <statement-list> END
 type Body = [Statement]
@@ -37,6 +43,7 @@ type Body = [Statement]
 data Expr 
           = ConstExpr ConstValue
           | StringExpr String -- ?
+          | VarExpr VarReference
           | FuncCall
           | BinOp Expr BinOp Expr
           | ArrayAccess Name Expr
@@ -48,9 +55,11 @@ data Declaration
             = NewVar Name Type
             | NewConst Name ConstValue
             | NewType Name Type
-            | NewLabel Int -- ? Name?
+            | NewLabel Label
             | NewFunction Function
         deriving Show
+
+type Label = Int -- Name?
 
 data Function = Function {
                 funcName :: Name,

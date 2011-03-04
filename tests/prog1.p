@@ -24,7 +24,9 @@ xchr[105]:='i';xchr[106]:='j';xchr[107]:='k';xchr[108]:='l';
 xchr[109]:='m';xchr[110]:='n';xchr[111]:='o';xchr[112]:='p';
 xchr[113]:='q';xchr[114]:='r';xchr[115]:='s';xchr[116]:='t';
 xchr[117]:='u';xchr[118]:='v';xchr[119]:='w';xchr[120]:='x';
-end;
+for i:=128 to 255 do xord[xchr[i]]:=i;
+for i:=0 to 126 do xord[xchr[i]]:=i;{:11}{14:}count:=0;{:14}end;
+
 begin
 x := 7;
 end.

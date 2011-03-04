@@ -19,6 +19,7 @@ case            { const TokCase }
 const           { const TokConst }
 div		{ const TokDiv }
 do		{ const TokDo }
+downto		{ const TokDownto }
 else		{ const TokElse }
 end		{ const TokEnd }
 file            { const TokFile }
@@ -37,6 +38,8 @@ procedure	{ const TokProcedure }
 program		{ const TokProgram }
 record		{ const TokRecord }
 repeat		{ const TokRepeat }
+then            { const TokThen }
+to              { const TokTo }
 type            { const TokType }
 var		{ const TokVar }
 while		{ const TokWhile }
@@ -79,6 +82,7 @@ data Token
     | TokConst
     | TokDiv
     | TokDo
+    | TokDownto
     | TokElse
     | TokEnd
     | TokFile
@@ -98,6 +102,8 @@ data Token
     | TokRecord
     | TokRepeat
     | TokString
+    | TokThen
+    | TokTo
     | TokType
     | TokVar
     | TokWhile
