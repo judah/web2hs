@@ -189,6 +189,7 @@ expr :: { Expr }
     | expr mod expr { BinOp $1 Mod $3 }
     | constValue    { ConstExpr $1 }
     | varRef { VarExpr $1 }
+    | ident '(' commalist(expr) ')' { FuncCall $1 $3 }
     | '(' expr ')' { $2 }
 
 ------

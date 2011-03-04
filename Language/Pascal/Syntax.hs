@@ -44,7 +44,7 @@ data Expr
           = ConstExpr ConstValue
           | StringExpr String -- ?
           | VarExpr VarReference
-          | FuncCall
+          | FuncCall Name [Expr]
           | BinOp Expr BinOp Expr
           | ArrayAccess Name Expr
     deriving Show
