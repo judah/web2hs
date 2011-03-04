@@ -9,6 +9,7 @@ import Language.Pascal.Syntax
 %name declaration declaration
 %name declarations declarations
 %name intValue intValue
+%name typeDescr typeDescr
 %name compoundStatement compoundStatement
 %name statement statement
 %tokentype { Token }
@@ -24,6 +25,7 @@ import Language.Pascal.Syntax
     do		    { TokDo }
     else	    { TokElse }
     end		    { TokEnd }
+    file            { TokFile }
     for		    { TokFor }
     function	    { TokFunction }
     goto	    { TokGoto }
@@ -49,8 +51,8 @@ import Language.Pascal.Syntax
     '='		    { TokEQ }
     '<'		    { TokLT }
     '>'		    { TokGT }
-    '{'		    { TokLeftBracket }
-    '}'		    { TokRightBracket }
+    '['		    { TokLeftBracket }
+    ']'		    { TokRightBracket }
     '.'		    { TokPeriod }
     ','		    { TokComma }
     '('		    { TokLeftParen }
@@ -128,16 +130,18 @@ typeSpec :: { Declaration }
 
 typeDescr :: { Type }
     : baseType { BaseType $1 }
-    | maybepacked array baseType of typeDescr
-                        { ArrayType $3 $5 }
+    | maybepacked array '[' baseType ']' of typeDescr
+                        { ArrayType $4 $7 }
+    | maybepacked file of typeDescr
+                        { FileType $4 }
 
 baseType :: { BaseType }
     : ident { NamedType $1 }
     | bound '.' '.' bound   { Range $1 $4 } 
 
 maybepacked
-    : packed    { () }
-    |           { () }
+    : {- empty -} { () }
+    | packed    { () }
 
 bound :: { Either Int Name }
     : ident     { Right $1 }

@@ -76,6 +76,7 @@ data Type
     | ArrayType { arrayIndexType :: BaseType , -- can be any ordinal type
                     arrayEltType :: Type
                 }
+    | FileType { fileEltType :: Type }
         deriving Show
 
 data BaseType

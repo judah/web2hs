@@ -1,1 +1,2 @@
 Maybe rename module Hierarchy to make "Web" explicit?
+Conflicts (anything more than operator precedence?)

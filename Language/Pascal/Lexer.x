@@ -24,6 +24,7 @@ div		{ const TokDiv }
 do		{ const TokDo }
 else		{ const TokElse }
 end		{ const TokEnd }
+file            { const TokFile }
 for		{ const TokFor }
 function	{ const TokFunction }
 goto		{ const TokGoto }
@@ -48,8 +49,8 @@ while		{ const TokWhile }
 "="		{ const TokEQ }
 "<"		{ const TokLT }
 ">"		{ const TokGT }
-"{"		{ const TokLeftBracket }
-"}"		{ const TokRightBracket }
+"["		{ const TokLeftBracket }
+"]"		{ const TokRightBracket }
 "."		{ const TokPeriod }
 ","		{ const TokComma }
 "("		{ const TokLeftParen }
@@ -83,6 +84,7 @@ data Token
     | TokDo
     | TokElse
     | TokEnd
+    | TokFile
     | TokFor
     | TokFunction
     | TokGoto
