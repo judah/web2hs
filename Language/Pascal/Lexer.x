@@ -8,9 +8,6 @@ $whitechar = [ \t\n\r\f\v]
 $digit = [0-9]
 $alpha = [a-zA-Z]
 
-@escape = \\ '
-@string = [^'] | @escape
-
 pascal :-
 
 $white+         ;
@@ -61,7 +58,7 @@ while		{ const TokWhile }
 "<="		{ const TokLTEQ }
 ">="		{ const TokGTEQ }
 ":="		{ const TokEQDef }
-\' @string* \'   { TokStringConst . init . tail}
+\' ([^'] | "''") * \'   { TokStringConst . unescape . init . tail}
 
 
 $alpha [$alpha $digit]*     { TokIdent }
@@ -124,4 +121,9 @@ data Token
     | TokGTEQ
     | TokEQDef
             deriving Show
+
+unescape :: String -> String
+unescape ('\'':'\'':cs) = '\'' : unescape cs
+unescape (c:cs) = c : unescape cs
+unescape "" = ""
 }
