@@ -88,6 +88,7 @@ statement :: { Statement }
 
 varRef :: { VarReference }
     : ident { NameRef $1 }
+    | ident '[' expr ']' { ArrayRef $1 $3 }
 
 declarations : list(declaration) { concat $1 }
 
