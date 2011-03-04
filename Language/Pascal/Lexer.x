@@ -5,7 +5,7 @@ module Language.Pascal.Lexer(alexScanTokens,Token(..)) where
 %wrapper "basic"
 
 $whitechar = [ \t\n\r\f\v]
-$digit = 0-9
+$digit = [0-9]
 $alpha = [a-zA-Z]
 
 @escape = \\ '
@@ -60,7 +60,7 @@ while		{ const TokWhile }
 "<="		{ const TokLTEQ }
 ">="		{ const TokGTEQ }
 ":="		{ const TokEQDef }
-\' @string* \'   { TokStringConst }
+\' @string* \'   { TokStringConst . init . tail}
 
 
 $alpha [$alpha $digit]*     { TokIdent }

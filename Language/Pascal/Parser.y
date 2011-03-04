@@ -1,18 +1,18 @@
 {
-module Language.Pascal.Parser(pascal) where
+module Language.Pascal.Parser where
 
 import Language.Pascal.Lexer
 import Language.Pascal.Syntax
 }
 
-%name pascal
+%name program pascalProgram
+%name declaration declaration
+%name declarations declarations
+%name intValue intValue
 %tokentype { Token }
 %error { parseError }
 
 %token
-    ident           { TokIdent $$ }
-    int             { TokInt $$ }
-    stringConst     { TokStringConst $$ }
     and             { TokAnd }
     array           { TokArray }
     begin           { TokBegin }
@@ -58,29 +58,42 @@ import Language.Pascal.Syntax
     "<="	    { TokLTEQ }
     ">="	    { TokGTEQ }
     ":="	    { TokEQDef }
+    ident           { TokIdent $$ }
+    int             { TokInt $$ }
+    stringConst     { TokStringConst $$ }
     
 %%
 
+pascalProgram :: { Program }
+    : program ident progParams ';' declarations compoundStatement
+        { Program $2 $3 $5 $6 }
 
-pascal : semilist(declaration) {("This is it",concat $1)}
+progParams
+    : '(' commalist(ident) ')' { $2 }
+    | {- empty -}           { [] }
+block: { [] }
+compoundStatement : { [] }
+
+declarations : list(declaration) { concat $1 }
 
 declaration :: { [ Declaration] }
     : constDeclar { $1 }
     | typeDeclar { $1 }
-    
-
-foo : begin end { () } 
-
-semilist(p) : semilisthelper(p) { reverse $1 }
-semilisthelper(p)
-    : p ';'                     { [$1] }
-    | semilisthelper(p) p ';'   { $2 : $1 }
+    | varDeclar { $1 }
 
 constDeclar :: { [Declaration] }
     : const semilist(constAssign) { $2 }
-
 constAssign :: { Declaration }
     : ident '=' constValue  { NewConst $1 $3 }
+
+varDeclar :: { [Declaration] }
+    : var semilist(varDeclarSingle) { concat $2 }
+
+varDeclarSingle :: { [Declaration] }
+    : commalist(ident) ':' typeDescr
+        { fmap (flip NewVar $3) $1 }
+
+
 
 constValue :: { ConstValue }
     : int   { ConstInt $1 }
@@ -112,6 +125,33 @@ maybepacked
 bound :: { Either Int Name }
     : ident     { Right $1 }
     | int       { Left $1 }
+
+
+intValue :: { Int }
+    : int { $1 }
+
+
+-----------
+-- Lists
+
+semilist(p) : semilisthelper(p) { reverse $1 }
+semilisthelper(p)
+    : p ';'                     { [$1] }
+    | semilisthelper(p) p ';'   { $2 : $1 }
+
+list(p) : listhelper(p) { reverse $1 }
+listhelper(p)
+    :                       { [] }
+    | listhelper(p) p    { $2 : $1 }
+
+commalist(p) : 
+    {- empty -}         { [] }
+    | commalisthelper(p) { reverse $1 }
+commalistNonempty(p)
+    : commalisthelper(p) { reverse $1 }
+commalisthelper(p)
+    :  p                { [$1] }
+    | commalisthelper(p) ',' p      { $3 : $1 }
 
 {
 parseError :: [Token] -> a
