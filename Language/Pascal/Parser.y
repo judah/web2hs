@@ -80,6 +80,10 @@ declaration :: { [ Declaration] }
     : constDeclar { $1 }
     | typeDeclar { $1 }
     | varDeclar { $1 }
+    | labelDeclar { $1 }
+
+labelDeclar :: { [Declaration] }
+    : label commalistNonempty(int) ';'  { fmap NewLabel $2 }
 
 constDeclar :: { [Declaration] }
     : const semilist(constAssign) { $2 }

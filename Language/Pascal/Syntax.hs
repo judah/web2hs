@@ -47,6 +47,7 @@ data Declaration
             = NewVar Name Type
             | NewConst Name ConstValue
             | NewType Name Type
+            | NewLabel Int -- ? Name?
     deriving Show
 
 data ConstValue = ConstInt Int
