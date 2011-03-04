@@ -16,6 +16,10 @@ import Language.Pascal.Syntax
 %tokentype { Token }
 %error { parseError }
 
+-- http://www.hkbu.edu.hk/~bba_ism/ISM2110/pas039.htm
+%left '+' '-' or
+%left '*' '/' div mod and
+
 %token
     and             { TokAnd }
     array           { TokArray }
@@ -159,17 +163,14 @@ intValue :: { Int }
 -- Expressions
 
 expr :: { Expr }
-    : expr binOp expr { BinOp $1 $2 $3 }
+    : expr '+' expr { BinOp $1 Plus $3 }
+    | expr '-' expr { BinOp $1 Minus $3 }
+    | expr '*' expr { BinOp $1 Times $3 }
+    | expr '/' expr { BinOp $1 Divide $3 }
+    | expr div expr { BinOp $1 Div $3 }
+    | expr mod expr { BinOp $1 Mod $3 }
     | constValue    { ConstExpr $1 }
     | '(' expr ')' { $2 }
-
-binOp :: { BinOp }
-    : '+'   { Plus }
-    | '-'   { Minus }
-    | '*'   { Times }
-    | '/'   { Divide }
-    | div   { Div }
-    | mod   { Mod }
 
 ------
 -- Functions
