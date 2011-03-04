@@ -8,10 +8,11 @@ import Language.Pascal.Syntax
 %name program pascalProgram
 %name declaration declaration
 %name declarations declarations
-%name intValue intValue
 %name typeDescr typeDescr
 %name compoundStatement compoundStatement
 %name statement statement
+%name procedure procedureDeclar
+%name localVars localVars
 %tokentype { Token }
 %error { parseError }
 
@@ -197,6 +198,11 @@ argVars :: { ParamList }
 
 localVars :: { ParamList }
     :  { [] }
+    | semilist(localVarDecl) { concat $1 }
+
+localVarDecl :: { ParamList }
+    : var commalistNonempty(ident) ':' typeDescr
+        { fmap (\n -> (n,$4)) $2 }
 
 -----------
 -- Lists
