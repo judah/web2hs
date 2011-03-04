@@ -41,7 +41,6 @@ import Language.Pascal.Syntax
     program	    { TokProgram }
     record	    { TokRecord }
     repeat	    { TokRepeat }
-    string	    { TokString }
     type            { TokType }
     var		    { TokVar }
     while	    { TokWhile }

@@ -40,7 +40,6 @@ procedure	{ const TokProcedure }
 program		{ const TokProgram }
 record		{ const TokRecord }
 repeat		{ const TokRepeat }
-string		{ const TokString }
 type            { const TokType }
 var		{ const TokVar }
 while		{ const TokWhile }
