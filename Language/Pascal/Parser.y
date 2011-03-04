@@ -68,7 +68,7 @@ import Language.Pascal.Syntax
 %%
 
 pascalProgram :: { Program }
-    : program ident progParams ';' declarations compoundStatement
+    : program ident progParams ';' declarations compoundStatement '.'
         { Program $2 $3 $5 $6 }
 
 progParams
