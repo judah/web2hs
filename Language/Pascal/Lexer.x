@@ -26,6 +26,7 @@ else		{ const TokElse }
 end		{ const TokEnd }
 file            { const TokFile }
 for		{ const TokFor }
+forward		{ const TokForward }
 function	{ const TokFunction }
 goto		{ const TokGoto }
 if		{ const TokIf }
@@ -86,6 +87,7 @@ data Token
     | TokEnd
     | TokFile
     | TokFor
+    | TokForward
     | TokFunction
     | TokGoto
     | TokIf

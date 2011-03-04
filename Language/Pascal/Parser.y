@@ -27,6 +27,7 @@ import Language.Pascal.Syntax
     end		    { TokEnd }
     file            { TokFile }
     for		    { TokFor }
+    forward	    { TokForward }
     function	    { TokFunction }
     goto	    { TokGoto }
     if		    { TokIf }
@@ -79,8 +80,8 @@ progParams
 
 block: { [] }
 compoundStatement :: { [Statement] }
-    -- note: I think the trailing semicolon is optional in Pascal,
-    -- but tangle seems to always generate it.
+    -- note: I think the trailing semicolon on the last substatement
+    -- is optional in Pascal, but tangle seems to always generate it.
     : begin semilist(statement) end { $2 }
 
 statement :: { Statement }
@@ -97,6 +98,8 @@ declaration :: { [ Declaration] }
     | typeDeclar { $1 }
     | varDeclar { $1 }
     | labelDeclar { $1 }
+    | functionDeclar ';' { [NewFunction $1] }
+    | procedureDeclar ';' { [NewFunction $1] }
 
 labelDeclar :: { [Declaration] }
     : label commalistNonempty(int) ';'  { fmap NewLabel $2 }
@@ -167,6 +170,34 @@ binOp :: { BinOp }
     | '/'   { Divide }
     | div   { Div }
     | mod   { Mod }
+
+------
+-- Functions
+
+procedureDeclar :: { Function }
+    : procedure ident paramList ';' localVars blockOrForward
+        { Function $2 $3 Nothing $5 $6 }
+
+functionDeclar :: { Function }
+    : function ident paramList ':' typeDescr ';' localVars blockOrForward
+        { Function $2 $3 (Just $5) $7 $8 }
+
+blockOrForward :: { Maybe [Statement] }
+    : compoundStatement     { Just $1 }
+    | forward   { Nothing }
+
+paramList :: { ParamList }
+    : '(' paramListHelper ')'   { reverse $2 }
+    | {- empty -}       { [] }
+paramListHelper :: { ParamList }
+    : argVars { $1 }
+    | paramListHelper ',' localVars { $3 ++ $1 }
+argVars :: { ParamList }
+    : var commalistNonempty(ident) ':' typeDescr
+        { fmap (\n -> (n,$4)) $2 }
+
+localVars :: { ParamList }
+    :  { [] }
 
 -----------
 -- Lists

@@ -43,17 +43,25 @@ data Expr
     deriving Show
             -- records?
 
-data DefineProcedure = DefineProcedure
-data DefineFunction = DefineFunction1
-data Function = Function
-data Procedure = Procedure
 
 data Declaration
             = NewVar Name Type
             | NewConst Name ConstValue
             | NewType Name Type
             | NewLabel Int -- ? Name?
+            | NewFunction Function
+        deriving Show
+
+data Function = Function {
+                funcName :: Name,
+                funcParams :: ParamList,
+                funcReturnType :: Maybe Type, -- Nothing if procedure
+                funcLocalVars :: ParamList, -- variables
+                funcBody :: Maybe [Statement] -- or "forward"
+            }
     deriving Show
+
+type ParamList = [(Name,Type)]   
 
 data ConstValue = ConstInt Int
                 | ConstChar Char
