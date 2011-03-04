@@ -9,6 +9,8 @@ import Language.Pascal.Syntax
 %name declaration declaration
 %name declarations declarations
 %name intValue intValue
+%name compoundStatement compoundStatement
+%name statement statement
 %tokentype { Token }
 %error { parseError }
 
@@ -41,6 +43,7 @@ import Language.Pascal.Syntax
     var		    { TokVar }
     while	    { TokWhile }
     '+'             { TokPlus }
+    '-'             { TokMinus }
     '*'             { TokTimes }
     '/'             { TokDivide }
     '='		    { TokEQ }
@@ -71,8 +74,18 @@ pascalProgram :: { Program }
 progParams
     : '(' commalist(ident) ')' { $2 }
     | {- empty -}           { [] }
+
 block: { [] }
-compoundStatement : { [] }
+compoundStatement :: { [Statement] }
+    -- note: I think the trailing semicolon is optional in Pascal,
+    -- but tangle seems to always generate it.
+    : begin semilist(statement) end { $2 }
+
+statement :: { Statement }
+    : varRef ":=" expr { AssignStmt $1 $3 }
+
+varRef :: { VarReference }
+    : ident { NameRef $1 }
 
 declarations : list(declaration) { concat $1 }
 
@@ -134,6 +147,21 @@ bound :: { Either Int Name }
 intValue :: { Int }
     : int { $1 }
 
+----------
+-- Expressions
+
+expr :: { Expr }
+    : expr binOp expr { BinOp $1 $2 $3 }
+    | constValue    { ConstExpr $1 }
+    | '(' expr ')' { $2 }
+
+binOp :: { BinOp }
+    : '+'   { Plus }
+    | '-'   { Minus }
+    | '*'   { Times }
+    | '/'   { Divide }
+    | div   { Div }
+    | mod   { Mod }
 
 -----------
 -- Lists

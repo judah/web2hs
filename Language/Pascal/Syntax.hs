@@ -17,7 +17,7 @@ data Program = Program {
     deriving Show
 
 data Statement =
-               AssignStmt {assignTarget :: Name, assignExpr :: Expr}
+               AssignStmt {assignTarget :: VarReference, assignExpr :: Expr}
                | FuncCallStmt {funName :: Name, funcArgs :: [Name]}
                | ForStmt { loopVar :: Name, forStart, forEnd :: Expr,
                         forBody :: Body}
@@ -25,19 +25,24 @@ data Statement =
                | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
         deriving Show
 
+-- Unsure about these...
+data VarReference = NameRef Name
+                  | ArrayRef Name Expr
+                deriving Show
+
+
 -- <statement> | BEGIN <statement-list> END
 type Body = [Statement]
 
-data Expr = IntExpr Int
-          | ConstExpr ConstValue
+data Expr 
+          = ConstExpr ConstValue
           | StringExpr String -- ?
           | FuncCall
-          | BinOp Expr Op Expr
+          | BinOp Expr BinOp Expr
           | ArrayAccess Name Expr
     deriving Show
             -- records?
 
-data Op = Op deriving Show
 data DefineProcedure = DefineProcedure
 data DefineFunction = DefineFunction1
 data Function = Function
