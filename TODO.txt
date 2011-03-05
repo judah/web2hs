@@ -1,2 +1,8 @@
 Maybe rename module Hierarchy to make "Web" explicit?
 Conflicts (anything more than operator precedence and if/then/else?)
+
+Missing features from parser:
+ - records
+ - "case" expressions
+ - "while" loops
+ - Anything else?
