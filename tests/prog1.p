@@ -28,11 +28,10 @@ for i:=127 to 255 do xchr[i]:=' ';
 {:10}{11:}for i:=0 to 255 do xord[chr(i)]:=127;
 for i:=128 to 255 do xord[xchr[i]]:=i;
 for i:=0 to 126 do xord[xchr[i]]:=i;{:11}{14:}count:=0;{:14}end;
-{:2}{15:}
-begin initialize;
-    {16:}for k:=0 to 255 do 
-    begin write(k:3,': "');l:=k;
-      if({17:}(k<32)or(k>126){:17})then 
+{:2}{15:}begin initialize;
+{16:}for k:=0 to 255 do 
+begin write(k:3,': "');l:=k;
+    if({17:}(k<32)or(k>126){:17})then 
         begin write(xchr[94],xchr[94]);
                 if k<64 then l:=k+64 else if k<128 then l:=k-64 else 
                     begin l:=k div 16;
@@ -40,7 +39,10 @@ begin initialize;
                         if l<10 then l:=l+48 else l:=l+87;count:=count+1;
                     end;count:=count+2;
         end;
-    end;
-writeln('(',count:1,' characters in all.)');9999:
-end.{:15}
+read(poolfile,m);write(xchr[xord[m]]);
+if xord[m]=34 then write(xchr[34]);end;writeln('"');s:=s+1;
+end else xsum:=true;readln(poolfile){:20};until xsum;
+if not eof(poolfile)then begin writeln(
+'! There''s junk after the check sum');goto 9999;end{:19};
+writeln('(',count:1,' characters in all.)');9999:end.{:15}
 

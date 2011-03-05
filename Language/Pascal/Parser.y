@@ -18,11 +18,13 @@ import Language.Pascal.Syntax
 %name statement statement
 %name procedure procedureDeclar
 %name localVars localVars
+%name expression expr
 
 -- http://www.hkbu.edu.hk/~bba_ism/ISM2110/pas039.htm
 %left '+' '-' or
 %left '*' '/' div mod and
 %left '=' "<>" '<' "<=" '>' ">="
+%left not
 
 %token
     and             { TokAnd }
@@ -114,14 +116,15 @@ statement :: { Statement }
     | goto labelName { Goto $2 }
     | ident { ProcedureCall $1 [] }
     | ident '(' commalist(expr) ')' { ProcedureCall $1 $3 }
-    | if expr then block { IfStmt $2 $4 Nothing }
-    | if expr then block  else block { IfStmt $2 $4 (Just $6) }
-    | for ident ":=" expr forDir expr do block
+    | if expr then statement { IfStmt $2 $4 Nothing }
+    | if expr then statement  else statement { IfStmt $2 $4 (Just $6) }
+    | for ident ":=" expr forDir expr do statement
                     { ForStmt $2 $4 $6 $5 $8 }
     | repeat semilist(statement) until expr
         { RepeatStmt $4 $2 }
     | write '(' commalist(writeArg) ')' { Write False $3 }
     | writeln '(' commalist(writeArg) ')' { Write True $3 }
+    | compoundStatement     { SubBlock $1 }
 
 varRef :: { VarReference }
     : ident { NameRef $1 }
@@ -220,6 +223,7 @@ expr :: { Expr }
     | expr "<=" expr { BinOp $1 LTEQ $3 }
     | expr '>' expr { BinOp $1 OpGT $3 }
     | expr ">=" expr { BinOp $1 GTEQ $3 }
+    | not expr { NotOp $2 }
     | constValue    { ConstExpr $1 }
     | varRef { VarExpr $1 }
     | ident '(' commalist(expr) ')' { FuncCall $1 $3 }

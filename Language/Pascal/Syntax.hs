@@ -19,11 +19,11 @@ data Program = Program {
 data Statement =
                AssignStmt {assignTarget :: VarReference, assignExpr :: Expr}
                | ProcedureCall {funName :: Name, funcArgs :: [Expr]}
-               | IfStmt { ifCond :: Expr, thenStmt :: Body,
-                            elseStmt :: Maybe Body }
+               | IfStmt { ifCond :: Expr, thenStmt :: Statement,
+                            elseStmt :: Maybe Statement}
                | ForStmt { loopVar :: Name, forStart, forEnd :: Expr,
                         forDirection :: ForDir,
-                        forBody :: Body}
+                        forBody :: Statement}
                | WhileStmt { loopExpr :: Expr, loopBody :: Body}
                | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
                | Goto Label
@@ -31,6 +31,7 @@ data Statement =
                | Write {addNewline :: Bool,
                         writeArgs :: [WriteArg]
                         }
+               | SubBlock [Statement]
         deriving Show
 
 -- Unsure about these...
@@ -53,6 +54,7 @@ data Expr
           | VarExpr VarReference
           | FuncCall Name [Expr]
           | BinOp Expr BinOp Expr
+          | NotOp Expr
           | ArrayAccess Name Expr
     deriving Show
             -- records?
