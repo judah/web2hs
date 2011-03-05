@@ -19,6 +19,7 @@ import Language.Pascal.Syntax
 -- http://www.hkbu.edu.hk/~bba_ism/ISM2110/pas039.htm
 %left '+' '-' or
 %left '*' '/' div mod and
+%left '=' "<>" '<' "<=" '>' ">="
 
 %token
     and             { TokAnd }
@@ -50,6 +51,7 @@ import Language.Pascal.Syntax
     then            { TokThen }
     to              { TokTo }
     type            { TokType }
+    until           { TokUntil }
     var		    { TokVar }
     while	    { TokWhile }
     '+'             { TokPlus }
@@ -57,6 +59,7 @@ import Language.Pascal.Syntax
     '*'             { TokTimes }
     '/'             { TokDivide }
     '='		    { TokEQ }
+    "<>"	    { TokNEQ }
     '<'		    { TokLT }
     '>'		    { TokGT }
     '['		    { TokLeftBracket }
@@ -97,10 +100,14 @@ block :: { [Statement] }
 statement :: { Statement }
     : varRef ":=" expr { AssignStmt $1 $3 }
     | goto labelName { Goto $2 }
+    | ident { ProcedureCall $1 [] }
+    | ident '(' commalist(expr) ')' { ProcedureCall $1 $3 }
     | if expr then block { IfStmt $2 $4 Nothing }
-    | if expr then block else block { IfStmt $2 $4 (Just $6) }
+    | if expr then block  else block { IfStmt $2 $4 (Just $6) }
     | for ident ":=" expr forDir expr do block
                     { ForStmt $2 $4 $6 $5 $8 }
+    | repeat semilist(statement) until expr
+        { RepeatStmt $4 $2 }
 
 varRef :: { VarReference }
     : ident { NameRef $1 }
@@ -187,6 +194,14 @@ expr :: { Expr }
     | expr '/' expr { BinOp $1 Divide $3 }
     | expr div expr { BinOp $1 Div $3 }
     | expr mod expr { BinOp $1 Mod $3 }
+    | expr or expr { BinOp $1 Or $3 }
+    | expr and expr { BinOp $1 And $3 }
+    | expr '=' expr { BinOp $1 OpEQ $3 }
+    | expr "<>" expr { BinOp $1 NEQ $3 }
+    | expr '<' expr { BinOp $1 OpLT $3 }
+    | expr "<=" expr { BinOp $1 LTEQ $3 }
+    | expr '>' expr { BinOp $1 OpGT $3 }
+    | expr ">=" expr { BinOp $1 GTEQ $3 }
     | constValue    { ConstExpr $1 }
     | varRef { VarExpr $1 }
     | ident '(' commalist(expr) ')' { FuncCall $1 $3 }

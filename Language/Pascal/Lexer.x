@@ -41,12 +41,14 @@ repeat		{ const TokRepeat }
 then            { const TokThen }
 to              { const TokTo }
 type            { const TokType }
+until           { const TokUntil }
 var		{ const TokVar }
 while		{ const TokWhile }
 "+"             { const TokPlus }
 "*"             { const TokTimes }
 "/"             { const TokDivide }
 "="		{ const TokEQ }
+"<>"		{ const TokNEQ }
 "<"		{ const TokLT }
 ">"		{ const TokGT }
 "["		{ const TokLeftBracket }
@@ -66,7 +68,9 @@ while		{ const TokWhile }
 
 $alpha [$alpha $digit]*     { TokIdent }
 $digit+                     { TokInt . read }
-"-" $digit+                     { TokInt . negate . read . drop 1 }
+-- Messes with the following
+-- (I.e., how to parse "2-3"?
+-- "-" $digit+                     { TokInt . negate . read . drop 1 }
 
 "-"             { const TokMinus }
 
@@ -105,6 +109,7 @@ data Token
     | TokThen
     | TokTo
     | TokType
+    | TokUntil
     | TokVar
     | TokWhile
     | TokPlus
@@ -112,6 +117,7 @@ data Token
     | TokTimes
     | TokDivide
     | TokEQ
+    | TokNEQ
     | TokLT
     | TokGT
     | TokLeftBracket

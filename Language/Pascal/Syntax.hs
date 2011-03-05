@@ -18,7 +18,7 @@ data Program = Program {
 
 data Statement =
                AssignStmt {assignTarget :: VarReference, assignExpr :: Expr}
-               | FuncCallStmt {funName :: Name, funcArgs :: [Name]}
+               | ProcedureCall {funName :: Name, funcArgs :: [Expr]}
                | IfStmt { ifCond :: Expr, thenStmt :: Body,
                             elseStmt :: Maybe Body }
                | ForStmt { loopVar :: Name, forStart, forEnd :: Expr,
@@ -27,6 +27,8 @@ data Statement =
                | WhileStmt { loopExpr :: Expr, loopBody :: Body}
                | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
                | Goto Label
+               -- TODO: Probably a better way to do this.
+               | Labelled Label Statement
         deriving Show
 
 -- Unsure about these...
@@ -78,6 +80,8 @@ data ConstValue = ConstInt Int
         deriving Show
 
 data BinOp = Plus | Minus | Times | Divide | Div | Mod
+            | Or | And
+            | OpEQ | NEQ | OpLT | LTEQ | OpGT | GTEQ
     deriving Show
                              
             {-

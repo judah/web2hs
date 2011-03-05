@@ -2,9 +2,7 @@
 type{5:}ASCIIcode=0..255;{:5}var{7:}xord:array[char]of ASCIIcode;
 xchr:array[ASCIIcode]of char;{:7}{12:}k,l:0..255;m,n:char;s:integer;
 {:12}{13:}count:integer;{:13}{18:}poolfile:packed file of char;
-xsum:boolean;{:18}
-
-procedure initialize;var{6:}i:integer;
+xsum:boolean;{:18}procedure initialize;var{6:}i:integer;
 {:6}begin{8:}xchr[32]:=' ';xchr[33]:='!';xchr[34]:='"';xchr[35]:='#';
 xchr[36]:='$';xchr[37]:='%';xchr[38]:='&';xchr[39]:='''';xchr[40]:='(';
 xchr[41]:=')';xchr[42]:='*';xchr[43]:='+';xchr[44]:=',';xchr[45]:='-';
@@ -24,10 +22,23 @@ xchr[105]:='i';xchr[106]:='j';xchr[107]:='k';xchr[108]:='l';
 xchr[109]:='m';xchr[110]:='n';xchr[111]:='o';xchr[112]:='p';
 xchr[113]:='q';xchr[114]:='r';xchr[115]:='s';xchr[116]:='t';
 xchr[117]:='u';xchr[118]:='v';xchr[119]:='w';xchr[120]:='x';
+xchr[121]:='y';xchr[122]:='z';xchr[123]:='{';xchr[124]:='|';
+xchr[125]:='}';xchr[126]:='~';{:8}{10:}for i:=0 to 31 do xchr[i]:=' ';
+for i:=127 to 255 do xchr[i]:=' ';
 {:10}{11:}for i:=0 to 255 do xord[chr(i)]:=127;
 for i:=128 to 255 do xord[xchr[i]]:=i;
 for i:=0 to 126 do xord[xchr[i]]:=i;{:11}{14:}count:=0;{:14}end;
+{:2}{15:}
+begin initialize;
+    {16:}for k:=0 to 255 do 
+    begin write(k3,': "');l:=k;
+      if({17:}(k<32)or(k>126){:17})then 
+        begin write(xchr[94],xchr[94]);
+                if k<64 then l:=k+64 else if k<128 then l:=k+64 else 
+                    l:=k;
+        end;
+        else x:=5;
+    end;
+writeln('(',count1,' characters in all.)');
+end.{:15}
 
-begin
-x := 7;
-end.
