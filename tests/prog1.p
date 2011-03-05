@@ -41,6 +41,6 @@ begin initialize;
                     end;count:=count+2;
         end;
     end;
-writeln('(',count1,' characters in all.)');
+writeln('(',count1,' characters in all.)');9999:
 end.{:15}
 

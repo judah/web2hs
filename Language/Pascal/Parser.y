@@ -94,7 +94,14 @@ progParams
 compoundStatement :: { [Statement] }
     -- note: I think the trailing semicolon on the last substatement
     -- is optional in Pascal, but tangle seems to always generate it.
-    : begin semilist(statement) end { $2 }
+    : begin compoundStmtList end { reverse $2 }
+compoundStmtList :: { [Statement] }
+    : {- empty -} { [] }
+    | compoundStmtList statementOrLabel { $2 : $1 }
+
+statementOrLabel :: { Statement }
+    : statement ';' { $1 }
+    | labelName ':' { MarkLabel $1 }
 
 block :: { [Statement] }
     : statement { [$1] }

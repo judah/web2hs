@@ -27,8 +27,7 @@ data Statement =
                | WhileStmt { loopExpr :: Expr, loopBody :: Body}
                | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
                | Goto Label
-               -- TODO: Probably a better way to do this.
-               | Labelled Label Statement
+               | MarkLabel Label
         deriving Show
 
 -- Unsure about these...
