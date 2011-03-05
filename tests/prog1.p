@@ -34,10 +34,12 @@ begin initialize;
     begin write(k3,': "');l:=k;
       if({17:}(k<32)or(k>126){:17})then 
         begin write(xchr[94],xchr[94]);
-                if k<64 then l:=k+64 else if k<128 then l:=k+64 else 
-                    l:=k;
+                if k<64 then l:=k+64 else if k<128 then l:=k-64 else 
+                    begin l:=k div 16;
+                        if l<10 then l:=l+48 else l:=l+87;write(xchr[l]);l:=k mod 16;
+                        if l<10 then l:=l+48 else l:=l+87;count:=count+1;
+                    end;count:=count+2;
         end;
-        else x:=5;
     end;
 writeln('(',count1,' characters in all.)');
 end.{:15}

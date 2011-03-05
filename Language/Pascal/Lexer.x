@@ -1,8 +1,17 @@
 {
-module Language.Pascal.Lexer(alexScanTokens,Token(..)) where
+module Language.Pascal.Lexer(
+    Token(..),
+    Alex,
+    runAlex,
+    alexMonadScan,
+    getPosition,
+    Pos(..),
+    lexerError,
+    ) where
+import Control.Monad
 }
 
-%wrapper "basic"
+%wrapper "monad"
 
 $whitechar = [ \t\n\r\f\v]
 $digit = [0-9]
@@ -10,69 +19,69 @@ $alpha = [a-zA-Z]
 
 pascal :-
 
-$white+         ;
-\{[^\}]*\}         ;
-and             { const TokAnd }
-array           { const TokArray }
-begin           { const TokBegin }
-case            { const TokCase }
-const           { const TokConst }
-div		{ const TokDiv }
-do		{ const TokDo }
-downto		{ const TokDownto }
-else		{ const TokElse }
-end		{ const TokEnd }
-file            { const TokFile }
-for		{ const TokFor }
-forward		{ const TokForward }
-function	{ const TokFunction }
-goto		{ const TokGoto }
-if		{ const TokIf }
-label		{ const TokLabel }
-mod		{ const TokMod }
-not		{ const TokNot }
-of		{ const TokOf }
-or		{ const TokOr }
-packed		{ const TokPacked }
-procedure	{ const TokProcedure }
-program		{ const TokProgram }
-record		{ const TokRecord }
-repeat		{ const TokRepeat }
-then            { const TokThen }
-to              { const TokTo }
-type            { const TokType }
-until           { const TokUntil }
-var		{ const TokVar }
-while		{ const TokWhile }
-"+"             { const TokPlus }
-"*"             { const TokTimes }
-"/"             { const TokDivide }
-"="		{ const TokEQ }
-"<>"		{ const TokNEQ }
-"<"		{ const TokLT }
-">"		{ const TokGT }
-"["		{ const TokLeftBracket }
-"]"		{ const TokRightBracket }
-"."		{ const TokPeriod }
-","		{ const TokComma }
-"("		{ const TokLeftParen }
-")"		{ const TokRightParen }
-":"		{ const TokColon }
-";"		{ const TokSemicolon }
-"^"		{ const TokCaret }
-"<="		{ const TokLTEQ }
-">="		{ const TokGTEQ }
-":="		{ const TokEQDef }
-\' ([^'] | "''") * \'   { TokStringConst . unescape . init . tail}
+$white+         { skip }
+\{[^\}]*\}      { skip }
+and             { tok TokAnd }
+array           { tok TokArray }
+begin           { tok TokBegin }
+case            { tok TokCase }
+const           { tok TokConst }
+div		{ tok TokDiv }
+do		{ tok TokDo }
+downto		{ tok TokDownto }
+else		{ tok TokElse }
+end		{ tok TokEnd }
+file            { tok TokFile }
+for		{ tok TokFor }
+forward		{ tok TokForward }
+function	{ tok TokFunction }
+goto		{ tok TokGoto }
+if		{ tok TokIf }
+label		{ tok TokLabel }
+mod		{ tok TokMod }
+not		{ tok TokNot }
+of		{ tok TokOf }
+or		{ tok TokOr }
+packed		{ tok TokPacked }
+procedure	{ tok TokProcedure }
+program		{ tok TokProgram }
+record		{ tok TokRecord }
+repeat		{ tok TokRepeat }
+then            { tok TokThen }
+to              { tok TokTo }
+type            { tok TokType }
+until           { tok TokUntil }
+var		{ tok TokVar }
+while		{ tok TokWhile }
+"+"             { tok TokPlus }
+"*"             { tok TokTimes }
+"/"             { tok TokDivide }
+"="		{ tok TokEQ }
+"<>"		{ tok TokNEQ }
+"<"		{ tok TokLT }
+">"		{ tok TokGT }
+"["		{ tok TokLeftBracket }
+"]"		{ tok TokRightBracket }
+"."		{ tok TokPeriod }
+","		{ tok TokComma }
+"("		{ tok TokLeftParen }
+")"		{ tok TokRightParen }
+":"		{ tok TokColon }
+";"		{ tok TokSemicolon }
+"^"		{ tok TokCaret }
+"<="		{ tok TokLTEQ }
+">="		{ tok TokGTEQ }
+":="		{ tok TokEQDef }
+\' ([^'] | "''") * \'   { tok1 $ TokStringConst . unescape . init . tail}
 
 
-$alpha [$alpha $digit]*     { TokIdent }
-$digit+                     { TokInt . read }
+$alpha [$alpha $digit]*     { tok1 TokIdent }
+$digit+                     { tok1 $ TokInt . read }
 -- Messes with the following
 -- (I.e., how to parse "2-3"?
 -- "-" $digit+                     { TokInt . negate . read . drop 1 }
 
-"-"             { const TokMinus }
+"-"             { tok TokMinus }
 
 {
 data Token 
@@ -132,10 +141,30 @@ data Token
     | TokLTEQ
     | TokGTEQ
     | TokEQDef
+    | TokEOF
             deriving Show
 
 unescape :: String -> String
 unescape ('\'':'\'':cs) = '\'' : unescape cs
 unescape (c:cs) = c : unescape cs
 unescape "" = ""
+
+tok :: Token -> AlexInput -> Int -> Alex Token
+tok t _ _ = return t
+
+tok1 :: (String -> Token) -> AlexInput -> Int -> Alex Token
+tok1 f i@(_,_,s) len = return $ f (take len s)
+
+alexEOF = return TokEOF
+
+type Pos = (Int,Int)
+getPosition :: Alex Pos
+getPosition = liftM inputPos alexGetInput
+  where
+    inputPos (AlexPn _ l c,_,_) = (l,c)
+
+lexerError :: Pos -> String -> Alex a
+lexerError p s = do
+    alexError $ show p ++ ": " ++ s
+
 }

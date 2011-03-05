@@ -5,6 +5,11 @@ import Language.Pascal.Lexer
 import Language.Pascal.Syntax
 }
 
+%tokentype { Token }
+%monad { Alex }
+%lexer { alexLexer } { TokEOF }
+%error { parseError }
+
 %name program pascalProgram
 %name declaration declaration
 %name declarations declarations
@@ -13,8 +18,6 @@ import Language.Pascal.Syntax
 %name statement statement
 %name procedure procedureDeclar
 %name localVars localVars
-%tokentype { Token }
-%error { parseError }
 
 -- http://www.hkbu.edu.hk/~bba_ism/ISM2110/pas039.htm
 %left '+' '-' or
@@ -263,6 +266,12 @@ commalisthelper(p)
     | commalisthelper(p) ',' p      { $3 : $1 }
 
 {
-parseError :: [Token] -> a
-parseError _ = error "Parse error"
+alexLexer :: (Token -> Alex a) -> Alex a
+alexLexer = (alexMonadScan >>=)
+
+parseError :: Token -> Alex a
+parseError tok = do
+    p <- getPosition
+    lexerError p $ "Parse error at token: " ++ show tok
+
 }
