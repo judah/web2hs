@@ -31,7 +31,7 @@ for i:=0 to 126 do xord[xchr[i]]:=i;{:11}{14:}count:=0;{:14}end;
 {:2}{15:}
 begin initialize;
     {16:}for k:=0 to 255 do 
-    begin write(k3,': "');l:=k;
+    begin write(k:3,': "');l:=k;
       if({17:}(k<32)or(k>126){:17})then 
         begin write(xchr[94],xchr[94]);
                 if k<64 then l:=k+64 else if k<128 then l:=k-64 else 
@@ -41,6 +41,6 @@ begin initialize;
                     end;count:=count+2;
         end;
     end;
-writeln('(',count1,' characters in all.)');9999:
+writeln('(',count:1,' characters in all.)');9999:
 end.{:15}
 

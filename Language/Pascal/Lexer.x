@@ -53,6 +53,8 @@ type            { tok TokType }
 until           { tok TokUntil }
 var		{ tok TokVar }
 while		{ tok TokWhile }
+write		{ tok TokWrite }
+writeln		{ tok TokWriteln }
 "+"             { tok TokPlus }
 "*"             { tok TokTimes }
 "/"             { tok TokDivide }
@@ -121,6 +123,8 @@ data Token
     | TokUntil
     | TokVar
     | TokWhile
+    | TokWrite
+    | TokWriteln
     | TokPlus
     | TokMinus
     | TokTimes

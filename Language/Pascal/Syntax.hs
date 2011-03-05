@@ -28,6 +28,9 @@ data Statement =
                | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
                | Goto Label
                | MarkLabel Label
+               | Write {addNewline :: Bool,
+                        writeArgs :: [WriteArg]
+                        }
         deriving Show
 
 -- Unsure about these...
@@ -37,6 +40,9 @@ data VarReference = NameRef Name
 
 data ForDir = UpTo | DownTo
         deriving Show
+
+data WriteArg = WritePadded Int Expr | WritePlain Expr
+    deriving Show
 
 -- <statement> | BEGIN <statement-list> END
 type Body = [Statement]

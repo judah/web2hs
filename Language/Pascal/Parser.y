@@ -57,6 +57,8 @@ import Language.Pascal.Syntax
     until           { TokUntil }
     var		    { TokVar }
     while	    { TokWhile }
+    write           { TokWrite }
+    writeln         { TokWriteln }
     '+'             { TokPlus }
     '-'             { TokMinus }
     '*'             { TokTimes }
@@ -118,6 +120,8 @@ statement :: { Statement }
                     { ForStmt $2 $4 $6 $5 $8 }
     | repeat semilist(statement) until expr
         { RepeatStmt $4 $2 }
+    | write '(' commalist(writeArg) ')' { Write False $3 }
+    | writeln '(' commalist(writeArg) ')' { Write True $3 }
 
 varRef :: { VarReference }
     : ident { NameRef $1 }
@@ -129,6 +133,10 @@ labelName :: { Label }
 forDir :: { ForDir }
     : to    { UpTo }
     | downto { DownTo }
+
+writeArg :: { WriteArg }
+    : expr          { WritePlain $1 }
+    | expr ':' int  { WritePadded $3 $1 }
 
 declarations : list(declaration) { concat $1 }
 
