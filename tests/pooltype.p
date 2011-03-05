@@ -29,20 +29,25 @@ for i:=127 to 255 do xchr[i]:=' ';
 for i:=128 to 255 do xord[xchr[i]]:=i;
 for i:=0 to 126 do xord[xchr[i]]:=i;{:11}{14:}count:=0;{:14}end;
 {:2}{15:}begin initialize;
-{16:}for k:=0 to 255 do 
-begin write(k:3,': "');l:=k;
-    if({17:}(k<32)or(k>126){:17})then 
-        begin write(xchr[94],xchr[94]);
-                if k<64 then l:=k+64 else if k<128 then l:=k-64 else 
-                    begin l:=k div 16;
-                        if l<10 then l:=l+48 else l:=l+87;write(xchr[l]);l:=k mod 16;
-                        if l<10 then l:=l+48 else l:=l+87;count:=count+1;
-                    end;count:=count+2;
-        end;
+{16:}for k:=0 to 255 do begin write(k:3,': "');l:=k;
+if({17:}(k<32)or(k>126){:17})then begin write(xchr[94],xchr[94]);
+if k<64 then l:=k+64 else if k<128 then l:=k-64 else begin l:=k div 16;
+if l<10 then l:=l+48 else l:=l+87;write(xchr[l]);l:=k mod 16;
+if l<10 then l:=l+48 else l:=l+87;count:=count+1;end;count:=count+2;end;
+if l=34 then write(xchr[l],xchr[l])else write(xchr[l]);count:=count+1;
+writeln('"');end{:16};s:=256;{19:}reset(poolfile);xsum:=false;
+if eof(poolfile)then begin writeln('! I can''t read the POOL file.');
+goto 9999;end;repeat{20:}if eof(poolfile)then begin writeln(
+'! POOL file contained no check sum');goto 9999;end;read(poolfile,m,n);
+if m<>'*'then begin if(xord[m]<48)or(xord[m]>57)or(xord[n]<48)or(xord[n]
+>57)then begin writeln('! POOL line doesn''t begin with two digits');
+goto 9999;end;l:=xord[m]*10+xord[n]-48*11;write(s:3,': "');
+count:=count+l;
+for k:=1 to l do begin if eoln(poolfile)then begin writeln('"');
+begin writeln('! That POOL line was too short');goto 9999;end;end;
 read(poolfile,m);write(xchr[xord[m]]);
 if xord[m]=34 then write(xchr[34]);end;writeln('"');s:=s+1;
 end else xsum:=true;readln(poolfile){:20};until xsum;
 if not eof(poolfile)then begin writeln(
 '! There''s junk after the check sum');goto 9999;end{:19};
 writeln('(',count:1,' characters in all.)');9999:end.{:15}
-
