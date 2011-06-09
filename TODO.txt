@@ -5,4 +5,5 @@ Missing features from parser:
  - records
  - "case" expressions
  - "while" loops
+ - negative numbers
  - Anything else?
