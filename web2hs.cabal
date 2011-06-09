@@ -49,13 +49,16 @@ Library
         Language.Pascal.Syntax
         Language.Pascal.Lexer
         Language.Pascal.Parser
+        Language.Pascal.Pretty
   
   -- Packages needed in order to build this package.
-  Build-depends: base==4.*, array==0.3.*
+  Build-depends: base==4.*, array==0.3.*, pretty==1.0.*
   
   -- Modules not exported by this package.
   -- Other-modules:       
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
+
+  Extensions: RecordWildCards, TypeSynonymInstances
   
