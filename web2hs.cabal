@@ -60,5 +60,5 @@ Library
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
 
-  Extensions: RecordWildCards, TypeSynonymInstances
+  Extensions: RecordWildCards, TypeSynonymInstances, FlexibleInstances
   
