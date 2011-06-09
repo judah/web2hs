@@ -50,7 +50,6 @@ type Body = [Statement]
 
 data Expr 
           = ConstExpr ConstValue
-          | StringExpr String -- ?
           | VarExpr VarReference
           | FuncCall Name [Expr]
           | BinOp Expr BinOp Expr
