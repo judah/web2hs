@@ -42,7 +42,7 @@ data VarReference = NameRef Name
 data ForDir = UpTo | DownTo
         deriving Show
 
-data WriteArg = WritePadded Int Expr | WritePlain Expr
+data WriteArg = WritePadded Integer Expr | WritePlain Expr
     deriving Show
 
 -- <statement> | BEGIN <statement-list> END
@@ -68,7 +68,7 @@ data Declaration
             | NewFunction Function
         deriving Show
 
-type Label = Int -- Name?
+type Label = Integer -- Name?
 
 data Function = Function {
                 funcName :: Name,
@@ -81,7 +81,7 @@ data Function = Function {
 
 type ParamList = [(Name,Type)]   
 
-data ConstValue = ConstInt Int
+data ConstValue = ConstInt Integer
                 | ConstChar Char
                 | ConstString String
         deriving Show
@@ -110,6 +110,6 @@ data Type
 data BaseType
     = NamedType Name
     -- prim: integer, char, real,
-    | Range {lowerBound, upperBound :: Either Int Name} -- may refer to a constant
+    | Range {lowerBound, upperBound :: Either Integer Name} -- may refer to a constant
         
     deriving Show

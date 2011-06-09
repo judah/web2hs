@@ -197,12 +197,12 @@ maybepacked
     : {- empty -} { () }
     | packed    { () }
 
-bound :: { Either Int Name }
+bound :: { Either Integer Name }
     : ident     { Right $1 }
     | int       { Left $1 }
 
 
-intValue :: { Int }
+intValue :: { Integer }
     : int { $1 }
 
 ----------

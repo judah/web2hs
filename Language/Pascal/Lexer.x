@@ -87,7 +87,7 @@ $digit+                     { tok1 $ TokInt . read }
 
 {
 data Token 
-    = TokInt Int
+    = TokInt Integer
     | TokStringConst String
     | TokIdent String
     | TokAnd
