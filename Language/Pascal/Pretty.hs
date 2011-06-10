@@ -162,6 +162,11 @@ instance Pretty Type where
     pretty ArrayType {..} = text "array" <> brackets (pretty arrayIndexType)
                                 <+> text "of" <+> pretty arrayEltType
     pretty FileType {..} = text "file" <+> text "of" <+> pretty fileEltType
+    pretty RecordType {..} = myhang (text "record")
+                            (semicolonList $ map prettyField recordFields)
+                        $$ text "end"
+        where
+            prettyField (n,b) = pretty n <> colon <> pretty b
 
 ---------------
 

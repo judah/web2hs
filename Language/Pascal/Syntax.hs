@@ -103,6 +103,7 @@ data Type
                     arrayEltType :: Type
                 }
     | FileType { fileEltType :: Type }
+    | RecordType { recordFields :: [(Name,BaseType)] }
         deriving Show
 
 data BaseType

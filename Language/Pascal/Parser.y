@@ -188,6 +188,7 @@ typeDescr :: { Type }
                         { ArrayType $4 $7 }
     | maybepacked file of typeDescr
                         { FileType $4 }
+    | maybepacked record recordFields end { RecordType (reverse $3) }
 
 baseType :: { BaseType }
     : ident { NamedType $1 }
@@ -204,6 +205,10 @@ bound :: { Either Integer Name }
 
 intValue :: { Integer }
     : int { $1 }
+
+recordFields :: { [(Name,BaseType)] }
+    : {- empty -} { [] }
+    | recordFields ident ':' baseType ';' { ($2,$4) : $1 }
 
 ----------
 -- Expressions
