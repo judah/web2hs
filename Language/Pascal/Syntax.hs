@@ -81,7 +81,6 @@ data Function = Function {
 type ParamList = [(Name,Type)]   
 
 data ConstValue = ConstInt Integer
-                | ConstChar Char
                 | ConstString String
         deriving Show
 

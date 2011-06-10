@@ -33,12 +33,13 @@ instance Pretty Program where
             $$ vcat (map pretty progStmts))
         <> char '.'
             
-paramList :: Pretty a => [a] -> Doc
+paramList, commaList :: Pretty a => [a] -> Doc
 paramList [] = empty
 paramList xs = parens $ commaList xs
-  where
-    commaList [x] = pretty x
-    commaList (x:xs) = pretty x <> comma <> commaList xs
+
+commaList [] = empty
+commaList [x] = pretty x
+commaList (x:xs) = pretty x <> comma <+> commaList xs
 
 paramList' :: ParamList -> Doc
 paramList' = paramList . map f
@@ -73,7 +74,81 @@ instance Pretty [Statement] where
     pretty xs = myhang (text "begin") (semicolonList xs) $$ text "end"
 
 instance Pretty Statement where
+    pretty AssignStmt {..} = pretty assignTarget <+> text ":=" <+> pretty assignExpr
+    pretty ProcedureCall {..} = pretty funName <> parens (commaList funcArgs)
+    pretty ForStmt {..} = myhang
+                            (text "for" <+> pretty loopVar 
+                                <+> text ":=" 
+                                <+> pretty forStart
+                                <+> pretty forDirection
+                                <+> pretty forEnd
+                                <+> text "do")
+                            (pretty forBody)
+    pretty IfStmt {elseStmt = Nothing,..}
+        = myhang (text "if" <+> pretty ifCond)
+                (text "then" <+> pretty thenStmt)
+    pretty IfStmt {elseStmt = Just s, ..}
+        = myhang (text "if" <+> pretty ifCond)
+                $ (text "then" <+> pretty thenStmt)
+                 $$ (text "else" <+> pretty s)
+    pretty RepeatStmt {..}
+        = myhang (text "repeat") (pretty loopBody)
+            $$ text "until" <+> (pretty loopExpr)
+    -- TODO: This doesn't have a semicolon after it in a compound statement.
+    pretty (MarkLabel l) = pretty l <> colon
+    pretty (Goto l) = text "goto" <+> pretty l
+    pretty (SubBlock ss) = semicolonList ss
+    pretty Write {..} = text (if addNewline then "writeln" else "write")
+                         <> parens (commaList writeArgs)
     pretty s = parens $ text $ show s
+
+instance Pretty WriteArg where
+    pretty (WritePlain e) = pretty e
+    pretty (WritePadded n e) = pretty e <> colon <> pretty n
+
+instance Pretty ForDir where
+    pretty UpTo = text "to"
+    pretty DownTo = text "downto"
+
+instance Pretty VarReference where
+    pretty (NameRef n) = pretty n
+    pretty (ArrayRef n e) = pretty n <> lbrack <> pretty e <> rbrack
+
+instance Pretty Expr where
+    pretty (ConstExpr c) = pretty c
+    pretty (VarExpr v) = pretty v
+    pretty (FuncCall n as) = pretty n <> 
+                                if null as
+                                    then parens empty
+                                    else paramList as
+    -- TODO: precendence
+    pretty (BinOp e1 o e2) = parens $ pretty e1 <+> pretty o <+> pretty e2
+    pretty (NotOp e) = parens $ text "not" <+> pretty e
+    pretty (ArrayAccess n e) = pretty n <> brackets (pretty e)
+
+instance Pretty BinOp where
+    pretty Plus = char '+'
+    pretty Minus = char '-'
+    pretty Times = char '*'
+    pretty Divide = char '/'
+    pretty Div = text "div"
+    pretty Mod = text "mod"
+    pretty Or = text "or"
+    pretty And = text "and"
+    pretty OpEQ = text "="
+    pretty NEQ = text "<>"
+    pretty OpLT = text "<"
+    pretty LTEQ = text "<="
+    pretty OpGT = text ">"
+    pretty GTEQ = text ">="
+
+instance Pretty ConstValue where
+    pretty (ConstInt n) = pretty n
+    -- Pascal escapes a single-quote with a double-quote.
+    pretty (ConstString s) = quotes $ text $ concatMap escape s
+      where
+        escape '\'' = "''"
+        escape c = [c]
 
 ----------------
 
@@ -87,4 +162,6 @@ instance Pretty Type where
     pretty ArrayType {..} = text "array" <> brackets (pretty arrayIndexType)
                                 <+> text "of" <+> pretty arrayEltType
     pretty FileType {..} = text "file" <+> text "of" <+> pretty fileEltType
+
+---------------
 
