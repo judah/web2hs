@@ -7,3 +7,18 @@ Missing features from parser:
  - "while" loops
  - negative numbers
  - Anything else?
+
+Finish pretty-printer for the whole AST, and fix semicolons/begin..end blocks.
+
+-------
+Hard things to implement:
+
+Built-in functions:
+ - chr: convert integer to character
+ - write, writeln
+ - reset
+ - eof
+ - read
+ - eoln
+ - readln
+gotos (esp. at end?)
