@@ -82,7 +82,7 @@ import Language.Pascal.Syntax
     ">="	    { TokGTEQ }
     ":="	    { TokEQDef }
     ident           { TokIdent $$ }
-    int             { TokInt $$ }
+    nonnegint             { TokInt $$ }
     stringConst     { TokStringConst $$ }
     
 %%
@@ -205,6 +205,11 @@ bound :: { Either Integer Name }
 
 intValue :: { Integer }
     : int { $1 }
+
+int :: { Integer }
+    : nonnegint { $1 }
+    | '-' nonnegint { negate $2 }
+    | '+' nonnegint { $2 }
 
 recordFields :: { [(Name,BaseType)] }
     : {- empty -} { [] }

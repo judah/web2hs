@@ -5,7 +5,6 @@ Missing features from parser:
  - records
  - "case" expressions
  - "while" loops
- - negative numbers
  - Anything else?
 
 Finish pretty-printer for the whole AST, and fix semicolons/begin..end blocks.
