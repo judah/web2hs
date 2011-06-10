@@ -36,7 +36,7 @@ data Statement =
 
 -- Unsure about these...
 data VarReference = NameRef Name
-                  | ArrayRef Name Expr
+                  | ArrayRef Name [Expr]
                 deriving Show
 
 data ForDir = UpTo | DownTo
@@ -54,7 +54,7 @@ data Expr
           | FuncCall Name [Expr]
           | BinOp Expr BinOp Expr
           | NotOp Expr
-          | ArrayAccess Name Expr
+          | ArrayAccess Name [Expr]
     deriving Show
             -- records?
 
@@ -99,7 +99,7 @@ data BinOp = Plus | Minus | Times | Divide | Div | Mod
 data Type
     = BaseType BaseType
     -- For now, we just ignore "packed".
-    | ArrayType { arrayIndexType :: BaseType , -- can be any ordinal type
+    | ArrayType { arrayIndexType :: [BaseType] , -- can be any ordinal type
                     arrayEltType :: Type
                 }
     | FileType { fileEltType :: Type }

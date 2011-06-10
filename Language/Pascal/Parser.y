@@ -128,7 +128,7 @@ statement :: { Statement }
 
 varRef :: { VarReference }
     : ident { NameRef $1 }
-    | ident '[' expr ']' { ArrayRef $1 $3 }
+    | ident '[' commalistNonempty(expr) ']' { ArrayRef $1 $3 }
 
 labelName :: { Label }
     : int { $1 }
@@ -184,7 +184,7 @@ typeSpec :: { Declaration }
 
 typeDescr :: { Type }
     : baseType { BaseType $1 }
-    | maybepacked array '[' baseType ']' of typeDescr
+    | maybepacked array '[' commalistNonempty(baseType) ']' of typeDescr
                         { ArrayType $4 $7 }
     | maybepacked file of typeDescr
                         { FileType $4 }

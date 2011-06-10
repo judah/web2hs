@@ -112,7 +112,7 @@ instance Pretty ForDir where
 
 instance Pretty VarReference where
     pretty (NameRef n) = pretty n
-    pretty (ArrayRef n e) = pretty n <> lbrack <> pretty e <> rbrack
+    pretty (ArrayRef n e) = pretty n <> lbrack <> commaList e <> rbrack
 
 instance Pretty Expr where
     pretty (ConstExpr c) = pretty c
@@ -124,7 +124,7 @@ instance Pretty Expr where
     -- TODO: precendence
     pretty (BinOp e1 o e2) = parens $ pretty e1 <+> pretty o <+> pretty e2
     pretty (NotOp e) = parens $ text "not" <+> pretty e
-    pretty (ArrayAccess n e) = pretty n <> brackets (pretty e)
+    pretty (ArrayAccess n e) = pretty n <> brackets (commaList e)
 
 instance Pretty BinOp where
     pretty Plus = char '+'
@@ -159,7 +159,7 @@ instance Pretty BaseType where
 
 instance Pretty Type where
     pretty (BaseType t) = pretty t
-    pretty ArrayType {..} = text "array" <> brackets (pretty arrayIndexType)
+    pretty ArrayType {..} = text "array" <> brackets (commaList arrayIndexType)
                                 <+> text "of" <+> pretty arrayEltType
     pretty FileType {..} = text "file" <+> text "of" <+> pretty fileEltType
     pretty RecordType {..} = myhang (text "record")
