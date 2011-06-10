@@ -269,8 +269,12 @@ localVars :: { ParamList }
     | semilist(localVarDecl) { concat $1 }
 
 localVarDecl :: { ParamList }
-    : var commalistNonempty(ident) ':' typeDescr
+    : maybevar commalistNonempty(ident) ':' typeDescr
         { fmap (\n -> (n,$4)) $2 }
+
+maybevar
+    : var   { () }
+    | {- empty -} { () }
 
 -----------
 -- Lists
