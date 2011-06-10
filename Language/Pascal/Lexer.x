@@ -20,7 +20,7 @@ $alpha = [a-zA-Z]
 pascal :-
 
 $white+         { skip }
-\{[^\}]*\}      { skip }
+\{([\n]|[^\}])*\}      { skip }
 and             { tok TokAnd }
 array           { tok TokArray }
 begin           { tok TokBegin }
