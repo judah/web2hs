@@ -142,6 +142,9 @@ I don't think that TeX uses pointer types.
     function-heading = 'function' identifier [ formal-parameter-list ] ':' result-type.
     function-identification = 'function' function-identifier.
     function-identifier = identifier.
+    result-type = simple-type-identifier | pointer-type-identifier.
+    simple-type-identifier = type-identifier.
+    pointer-type-identifier = type-identifier.
 
 ### Directives
 The only directive in ISO7185 is `forward`.
@@ -252,11 +255,12 @@ From the ISO:
 ### Syntax of read and write
 
 
-    read-parameter-list = '(' [ file-variable ',' ] variable-access f ',' variable-access ')'
+    read-parameter-list = '(' [ file-variable ',' ] variable-access { ',' variable-access ')'
     readln-parameter-list = [ '(' ( file-variable | variable-access )
+                            { ',' variable-access } ')' ].
 
-The only difference between the syntax of `write` and `writeln` is that `writeln`'s arguments
-are optional.
+The only difference between the syntax of `read/write` and `readln/writeln` is that the
+latter's arguments are optional.
 
     write-parameter = expression [ ':' expression [ ':' expression ] ].
     write-parameter-list = '(' [ file-variable ',' ] write-parameter
@@ -287,12 +291,9 @@ are optional.
     packed-conformant-array-schema = 'packed' 'array' '[' index-type-specification ']'
                                      'of' type-identifier.
     pointer-type = new-pointer-type | pointer-type-identifier.
-    pointer-type-identifier = type-identifier.
-                            { ',' variable-access } ')' ].
     real-type-identifier = type-identifier.
     record-section = identifier-list ':' type-denoter.
     relational-operator = '=' | '<>' | '<' | '>' | '<=' | '>=' | 'in'.
-    result-type = simple-type-identifier | pointer-type-identifier.
     set-constructor = '[' [ member-designator { ',' member-designator } ] ']'.
     set-type = 'set' 'of' base-type.
     signed-integer = [ sign ] unsigned-integer.
@@ -300,7 +301,6 @@ are optional.
     signed-real = [ sign ] unsigned-real.
     simple-expression = [ sign ] term f adding-operator term g.
     simple-type = ordinal-type | real-type-identifier.
-    simple-type-identifier = type-identifier.
     structured-type = new-structured-type | structured-type-identifier.
     structured-type-identifier = type-identifier.
     tag-field = identifier.
