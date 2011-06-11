@@ -94,13 +94,14 @@ instance Pretty Statement where
     pretty RepeatStmt {..}
         = myhang (text "repeat") (pretty loopBody)
             $$ text "until" <+> (pretty loopExpr)
+    pretty WhileStmt {..}
+        = myhang (text "while" <+> pretty loopExpr) (pretty loopStmt)
     -- TODO: This doesn't have a semicolon after it in a compound statement.
     pretty (MarkLabel l) = pretty l <> colon
     pretty (Goto l) = text "goto" <+> pretty l
     pretty (SubBlock ss) = semicolonList ss
     pretty Write {..} = text (if addNewline then "writeln" else "write")
                          <> parens (commaList writeArgs)
-    pretty s = parens $ text $ show s
 
 instance Pretty WriteArg where
     pretty (WritePlain e) = pretty e

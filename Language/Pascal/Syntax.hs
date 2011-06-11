@@ -24,7 +24,7 @@ data Statement =
                | ForStmt { loopVar :: Name, forStart, forEnd :: Expr,
                         forDirection :: ForDir,
                         forBody :: Statement}
-               | WhileStmt { loopExpr :: Expr, loopBody :: Body}
+               | WhileStmt { loopExpr :: Expr, loopStmt :: Statement}
                | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
                | Goto Label
                | MarkLabel Label

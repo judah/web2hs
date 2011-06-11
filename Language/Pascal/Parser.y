@@ -122,6 +122,7 @@ statement :: { Statement }
                     { ForStmt $2 $4 $6 $5 $8 }
     | repeat semilist(statement) until expr
         { RepeatStmt $4 $2 }
+    | while expr do statement { WhileStmt $2 $4 }
     | write '(' commalist(writeArg) ')' { Write False $3 }
     | writeln '(' commalist(writeArg) ')' { Write True $3 }
     | compoundStatement     { SubBlock $1 }
