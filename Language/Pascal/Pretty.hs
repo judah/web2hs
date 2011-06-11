@@ -59,8 +59,16 @@ instance Pretty Declaration where
 instance Pretty Function where
     pretty Function{funcReturnType=Nothing,..}
         = myhang (text "procedure" <+> text funcName 
-                        <> paramList' funcParams <> semi)
+                        <> pretty funcParams <> semi)
             $ localVars funcLocalVars $$ pretty funcBody
+
+instance Pretty [FuncParam] where
+    pretty [] = empty
+    pretty ps = parens $ commaList ps
+
+instance Pretty FuncParam where
+    pretty FuncParam{..} = (if paramByRef then text "var" else empty)
+                            <+> pretty paramName <> colon <> pretty paramType
 
 localVars = semicolonList . map (\(n,t) -> text "var" <+> pretty n
                                             <+> colon <+> pretty t)

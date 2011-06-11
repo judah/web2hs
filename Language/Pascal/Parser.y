@@ -245,26 +245,25 @@ expr :: { Expr }
 -- Functions
 
 procedureDeclar :: { Function }
-    : procedure ident paramList ';' localVars functionBody
+    : procedure ident funcParams ';' localVars functionBody
         { Function $2 $3 Nothing $5 $6 }
 
 functionDeclar :: { Function }
-    : function ident paramList ':' typeDescr ';' localVars functionBody
+    : function ident funcParams ':' typeDescr ';' localVars functionBody
         { Function $2 $3 (Just $5) $7 $8 }
 
 functionBody :: { Maybe [Statement] }
     : compoundStatement     { Just $1 }
     | forward   { Nothing }
 
-paramList :: { ParamList }
-    : '(' paramListHelper ')'   { reverse $2 }
-    | {- empty -}       { [] }
-paramListHelper :: { ParamList }
-    : argVars { $1 }
-    | paramListHelper ',' localVars { $3 ++ $1 }
-argVars :: { ParamList }
-    : var commalistNonempty(ident) ':' typeDescr
-        { fmap (\n -> (n,$4)) $2 }
+funcParams :: { [FuncParam] }
+    : '(' commalist(funcParam) ')' { concat $2 }
+    | {- empty -}          { [] }
+
+funcParam :: { [FuncParam] }
+    : maybevar commalistNonempty(ident) ':' typeDescr
+        { [FuncParam n t r | let r = $1, let t = $4, 
+                                n <- $2] }
 
 localVars :: { ParamList }
     :  { [] }
@@ -274,9 +273,9 @@ localVarDecl :: { ParamList }
     : maybevar commalistNonempty(ident) ':' typeDescr
         { fmap (\n -> (n,$4)) $2 }
 
-maybevar
-    : var   { () }
-    | {- empty -} { () }
+maybevar :: { Bool }
+    : var   { True } 
+    | {- empty -} { False }
 
 -----------
 -- Lists

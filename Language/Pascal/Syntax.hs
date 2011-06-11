@@ -72,14 +72,17 @@ type Label = Integer -- Name?
 
 data Function = Function {
                 funcName :: Name,
-                funcParams :: ParamList,
+                funcParams :: [FuncParam],
                 funcReturnType :: Maybe Type, -- Nothing if procedure
                 funcLocalVars :: ParamList, -- variables
                 funcBody :: Maybe [Statement] -- or "forward"
             }
     deriving Show
 
-type ParamList = [(Name,Type)]   
+type ParamList = [(Name,Type)]
+
+data FuncParam = FuncParam {paramName :: Name, paramType :: Type, paramByRef :: Bool}
+            deriving Show
 
 data ConstValue = ConstInt Integer
                 | ConstString String
