@@ -85,7 +85,10 @@ data CaseElt = CaseElt {
                 }
     deriving Show
 
-data WriteArg = WritePadded Integer Expr | WritePlain Expr
+data WriteArg = WriteArg {
+                    writeExpr :: Expr,
+                    widthAndDigits :: Maybe (Integer, Maybe Integer)
+                }
     deriving Show
 
 -- <statement> | BEGIN <statement-list> END
@@ -104,6 +107,7 @@ data Expr
 
 
 data ConstValue = ConstInt Integer
+                | ConstReal Rational
                 | ConstString String
         deriving Show
 

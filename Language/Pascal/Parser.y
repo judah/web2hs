@@ -84,6 +84,7 @@ import Language.Pascal.Syntax
     ":="	    { TokEQDef }
     ident           { TokIdent $$ }
     nonnegint       { TokInt $$ }
+    nonnegreal      { TokReal $$ }
     stringConst     { TokStringConst $$ }
     
 %%
@@ -205,8 +206,10 @@ forDir :: { ForDir }
     | downto { DownTo }
 
 writeArg :: { WriteArg }
-    : expr          { WritePlain $1 }
-    | expr ':' nonnegint  { WritePadded $3 $1 }
+    : expr          { WriteArg $1 Nothing }
+    | expr ':' nonnegint  { WriteArg $1 (Just ($3,Nothing)) }
+    | expr ':' nonnegint  ':' nonnegint
+                    { WriteArg $1 (Just ($3,Just $5)) }
 
 caseEltList :: { [CaseElt] }
     : caseEltListHelper end    { reverse $1 }
@@ -227,11 +230,13 @@ constValueOrOthers :: { Maybe ConstValue }
 
 constValue :: { ConstValue }
     : '-' nonnegint { ConstInt (negate $2) }
+    | '-' nonnegreal { ConstReal (negate $2) }
     | nonnegConstValue { $1 }
 
 -- To remove reduce/reduce conflicts with '-'
 nonnegConstValue
     : nonnegint   { ConstInt $1 }
+    | nonnegreal  { ConstReal $1 }
     | stringConst { ConstString $1 }
     | '+' nonnegint { ConstInt $2 }
 

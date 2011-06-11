@@ -80,6 +80,7 @@ writeln		{ tok TokWriteln }
 
 $alpha [$alpha $digit]*     { tok1 TokIdent }
 $digit+                     { tok1 $ TokInt . read }
+$digit+ "." $digit+         { tok1 $ TokReal . readReal}
 -- Messes with the following
 -- (I.e., how to parse "2-3"?
 -- "-" $digit+                     { TokInt . negate . read . drop 1 }
@@ -89,6 +90,7 @@ $digit+                     { tok1 $ TokInt . read }
 {
 data Token 
     = TokInt Integer
+    | TokReal Rational
     | TokStringConst String
     | TokIdent String
     | TokAnd
@@ -154,6 +156,12 @@ unescape :: String -> String
 unescape ('\'':'\'':cs) = '\'' : unescape cs
 unescape (c:cs) = c : unescape cs
 unescape "" = ""
+
+-- \d+ "." \d+
+readReal :: String -> Rational
+readReal xs = let
+    (w,_:r) = break (=='.') xs
+    in fromInteger (read w) + fromInteger (read r) / (10^length r)
 
 tok :: Token -> AlexInput -> Int -> Alex Token
 tok t _ _ = return t

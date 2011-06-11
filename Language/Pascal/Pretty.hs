@@ -135,8 +135,14 @@ instance Pretty Statement where
     pretty EmptyStatement = empty
 
 instance Pretty WriteArg where
-    pretty (WritePlain e) = pretty e
-    pretty (WritePadded n e) = pretty e <> colon <> pretty n
+    pretty WriteArg {..} = pretty writeExpr
+                            <> case widthAndDigits of
+                                Nothing -> empty
+                                Just (w,md) 
+                                  -> colon <> pretty w
+                                    <> case md of
+                                        Nothing -> empty
+                                        Just d -> colon <> pretty d
 
 instance Pretty ForDir where
     pretty UpTo = text "to"
@@ -187,11 +193,15 @@ instance Pretty BinOp where
 
 instance Pretty ConstValue where
     pretty (ConstInt n) = pretty n
+    pretty (ConstReal n) = pretty n
     -- Pascal escapes a single-quote with a double-quote.
     pretty (ConstString s) = quotes $ text $ concatMap escape s
       where
         escape '\'' = "''"
         escape c = [c]
+
+instance Pretty Rational where
+    pretty = text . show . fromRational
 
 ----------------
 
