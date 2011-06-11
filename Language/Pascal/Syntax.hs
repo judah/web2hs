@@ -75,6 +75,7 @@ data Function = Function {
                 funcName :: Name,
                 funcParams :: [FuncParam],
                 funcReturnType :: Maybe Type, -- Nothing if procedure
+                funcLabels :: [Label],
                 funcLocalVars :: ParamList, -- variables
                 funcBody :: Maybe [Statement] -- or "forward"
             }

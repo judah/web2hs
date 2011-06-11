@@ -60,7 +60,8 @@ instance Pretty Function where
     pretty Function{funcReturnType=Nothing,..}
         = myhang (text "procedure" <+> text funcName 
                         <> pretty funcParams <> semi)
-            $ localVars funcLocalVars $$ pretty funcBody
+            $ localLabels funcLabels
+              $$ localVars funcLocalVars $$ pretty funcBody
 
 instance Pretty [FuncParam] where
     pretty [] = empty
@@ -72,6 +73,8 @@ instance Pretty FuncParam where
 
 localVars = semicolonList . map (\(n,t) -> text "var" <+> pretty n
                                             <+> colon <+> pretty t)
+
+localLabels = semicolonList . map (\n -> text "label" <+> pretty n)
 
 instance Pretty (Maybe [Statement]) where
     pretty Nothing = text "forward"

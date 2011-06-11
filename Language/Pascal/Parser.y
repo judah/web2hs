@@ -246,12 +246,13 @@ expr :: { Expr }
 -- Functions
 
 procedureDeclar :: { Function }
-    : procedure ident funcParams ';' localVars functionBody
-        { Function $2 $3 Nothing $5 $6 }
+    : procedure ident funcParams ';' localLabels localVars functionBody
+        { Function $2 $3 Nothing $5 $6 $7 }
 
 functionDeclar :: { Function }
-    : function ident funcParams ':' typeDescr ';' localVars functionBody
-        { Function $2 $3 (Just $5) $7 $8 }
+    : function ident funcParams ':' typeDescr ';' localLabels
+            localVars functionBody
+        { Function $2 $3 (Just $5) $7 $8 $9 }
 
 functionBody :: { Maybe [Statement] }
     : compoundStatement     { Just $1 }
@@ -277,6 +278,13 @@ localVarDecl :: { ParamList }
 maybevar :: { Bool }
     : var   { True } 
     | {- empty -} { False }
+
+localLabels :: { [Label] }
+    : { [] }
+    | semilist(localLabel) { concat $1 }
+
+localLabel :: { [Label] }
+    : label commalistNonempty(labelName) { $2 }
 
 -----------
 -- Lists
