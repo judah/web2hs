@@ -17,7 +17,7 @@ which is a web copy (partially OCR'd) of the grammar used by ISO7185.
  
 ### Identifiers
 
-    identifier = letter f letter | digit g.
+    identifier = letter { letter | digit }.
     letter = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j'
            | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't'
            | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'.
@@ -73,7 +73,7 @@ preprocesses those away.
 
     record-type = 'record' field-list 'end'.
     field-list = [ ( fixed-part [ ';' variant-part ] | variant-part ) [ ';' ] ].
-    fixed-part = record-section f ';' record-section g.
+    fixed-part = record-section { ';' record-section }.
     variant = case-constant-list ':' '(' field-list ')'.
     variant-part = 'case' variant-selector 'of' variant { ';' variant }.
     variant-selector = [ tag-field ':' ] tag-type.
@@ -152,7 +152,7 @@ The only directive in ISO7185 is `forward`.
     directive = letter { letter | digit }.
 
 ### Formal parameters
-    formal-parameter-list = '(' formal-parameter-section f ';' formal-parameter-section } ')' .
+    formal-parameter-list = '(' formal-parameter-section { ';' formal-parameter-section } ')' .
     formal-parameter-section = value-parameter-specification
                              | variable-parameter-specification
                              | procedural-parameter-specification
@@ -255,7 +255,7 @@ From the ISO:
 ### Syntax of read and write
 
 
-    read-parameter-list = '(' [ file-variable ',' ] variable-access { ',' variable-access ')'
+    read-parameter-list = '(' [ file-variable ',' ] variable-access { ',' variable-access } ')'
     readln-parameter-list = [ '(' ( file-variable | variable-access )
                             { ',' variable-access } ')' ].
 
@@ -272,7 +272,7 @@ latter's arguments are optional.
 ### With statements
 
     with-statement = 'with' record-variable-list 'do' statement.
-    record-variable-list = record-variable f ',' record-variable g.
+    record-variable-list = record-variable { ',' record-variable }.
 
 ## Rest
     adding-operator = '+' | '-' | 'or' .
@@ -299,13 +299,13 @@ latter's arguments are optional.
     signed-integer = [ sign ] unsigned-integer.
     signed-number = signed-integer | signed-real.
     signed-real = [ sign ] unsigned-real.
-    simple-expression = [ sign ] term f adding-operator term g.
+    simple-expression = [ sign ] term { adding-operator term }.
     simple-type = ordinal-type | real-type-identifier.
     structured-type = new-structured-type | structured-type-identifier.
     structured-type-identifier = type-identifier.
     tag-field = identifier.
     tag-type = ordinal-type-identifier.
-    term = factor f multiplying-operator factor g.
+    term = factor { multiplying-operator factor }.
     unpacked-conformant-array-schema =
          'array' '[' index-type-specification { ';' index-type-specification } ']'
          'of' ( type-identifier | conformant-array-schema ).
