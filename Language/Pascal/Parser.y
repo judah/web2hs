@@ -10,14 +10,13 @@ import Language.Pascal.Syntax
 %lexer { alexLexer } { TokEOF }
 %error { parseError }
 
+-- Shift-reduce for nested if-then-else
+%expect 1
+
 %name program pascalProgram
-%name declaration declaration
-%name declarations declarations
 %name typeDescr typeDescr
 %name compoundStatement compoundStatement
 %name statement statement
-%name procedure procedureDeclar
-%name localVars localVars
 %name expression expr
 
 -- http://www.hkbu.edu.hk/~bba_ism/ISM2110/pas039.htm
@@ -90,28 +89,89 @@ import Language.Pascal.Syntax
 %%
 
 pascalProgram :: { Program }
-    : program ident progParams ';' declarations compoundStatement '.'
-        { Program $2 $3 $5 $6 }
+    : program ident progParams ';' block '.'
+        { Program $2 $3 $5 }
 
 progParams
     : '(' commalist(ident) ')' { $2 }
     | {- empty -}           { [] }
 
-compoundStatement :: { [Statement] }
+
+block :: { Block }
+    : blockLabels blockConstants blockTypes blockVars blockFuncs
+      compoundStatement
+    { Block $1 $2 $3 $4 $5 $6 }
+
+blockLabels :: { [Label] }
+    : label commalistNonempty(labelName) ';'  { $2 }
+    | {- empty -}           { [] }
+
+blockConstants :: { [(Name,ConstValue)] }
+    : const semilist(constAssign) { $2 }
+    | {- empty -}           { [] }
+constAssign :: { (Name,ConstValue) }
+    : ident '=' constValue { ($1,$3) }
+
+blockTypes :: { [(Name,Type)] }
+    : type semilist(typeDeclar) { $2 }
+    | {- empty -}           { [] }
+typeDeclar :: { (Name,Type) }
+    : ident '=' typeDescr   { ($1,$3) }
+
+blockVars :: { [(Name,Type)] }
+    : var semilist(varDecls)   { [(n,t) | (ns,t) <- $2, n <- ns] }
+    | {- empty -}           { [] }
+varDecls :: { ([Name],Type) }
+    : commalistNonempty(ident) ':' typeDescr { ($1,$3) }
+
+blockFuncs :: {[FunctionDecl]}
+    : semilist(functionDecl)    { $1 }
+    | {- empty -}           { [] }
+
+functionDecl :: { FunctionDecl }
+    : procedure ident paramList ';' forward
+        { FuncForward $2 (FuncHeading $3 Nothing) }
+    | procedure ident paramList ';' block
+        { Func $2 (FuncHeading $3 Nothing) $5 }
+    | function ident paramList ':' typeDescr ';' forward
+        { FuncForward $2 (FuncHeading $3 (Just $5)) }
+    | function ident paramList ':' typeDescr ';' block
+        { Func $2 (FuncHeading $3 (Just $5)) $7 }
+
+
+paramList :: { [FuncParam] }
+    : {- empty -}   { [] }
+    | '(' funcParams ')'     { concat (reverse $2) }
+
+funcParams :: { [[FuncParam]] }
+    : funcParam { [$1] }
+    | funcParams ';' funcParam  { $3 : $1 }
+
+funcParam :: { [FuncParam] }
+    : maybevar commalistNonempty(ident) ':' typeDescr
+        { [FuncParam n t r | let r = $1, let t = $4, 
+                                n <- $2] }
+
+maybevar :: { Bool }
+    : var   { True } 
+    | {- empty -} { False }
+
+
+
+compoundStatement :: { StatementList }
     -- note: I think the trailing semicolon on the last substatement
     -- is optional in Pascal, but tangle seems to always generate it.
-    : begin compoundStmtList end { reverse $2 }
-compoundStmtList :: { [Statement] }
-    : {- empty -} { [] }
-    | compoundStmtList statementOrLabel { $2 : $1 }
+    : begin statementList end { $2 }
 
-statementOrLabel :: { Statement }
-    : statement ';' { $1 }
-    | labelName ':' { MarkLabel $1 }
+statementList :: { StatementList }
+    : statementListHelper { reverse $1 }
+statementListHelper :: { StatementList }
+    : statementListElt { [$1] }
+    | statementListHelper ';' statementListElt { $3 : $1 }
 
-block :: { [Statement] }
-    : statement { [$1] }
-    | compoundStatement { $1 }
+statementListElt :: { (Maybe Label, Statement) }
+    : statement { (Nothing,$1) }
+    | labelName ':' statement { (Just $1,$3) }
 
 statement :: { Statement }
     : varRef ":=" expr { AssignStmt $1 $3 }
@@ -122,13 +182,13 @@ statement :: { Statement }
     | if expr then statement  else statement { IfStmt $2 $4 (Just $6) }
     | for ident ":=" expr forDir expr do statement
                     { ForStmt $2 $4 $6 $5 $8 }
-    | repeat semilist(statement) until expr
+    | repeat statementList until expr
         { RepeatStmt $4 $2 }
     | while expr do statement { WhileStmt $2 $4 }
     | case expr of caseEltList { CaseStmt $2 $4 }
     | write '(' commalist(writeArg) ')' { Write False $3 }
     | writeln '(' commalist(writeArg) ')' { Write True $3 }
-    | compoundStatement     { SubBlock $1 }
+    | compoundStatement     { CompoundStmt $1 }
     | {- empty -}           { EmptyStatement }
 
 varRef :: { VarReference }
@@ -164,32 +224,6 @@ constValueOrOthers :: { Maybe ConstValue }
     : others        { Nothing }
     | constValue    { Just $1 }
 
-declarations : list(declaration) { concat $1 }
-
-declaration :: { [ Declaration] }
-    : constDeclar { $1 }
-    | typeDeclar { $1 }
-    | varDeclar { $1 }
-    | labelDeclar { $1 }
-    | functionDeclar ';' { [NewFunction $1] }
-    | procedureDeclar ';' { [NewFunction $1] }
-
-labelDeclar :: { [Declaration] }
-    : label commalistNonempty(labelName) ';'  { fmap NewLabel $2 }
-
-constDeclar :: { [Declaration] }
-    : const semilist(constAssign) { $2 }
-constAssign :: { Declaration }
-    : ident '=' constValue  { NewConst $1 $3 }
-
-varDeclar :: { [Declaration] }
-    : var semilist(varDeclarSingle) { concat $2 }
-
-varDeclarSingle :: { [Declaration] }
-    : commalist(ident) ':' typeDescr
-        { fmap (flip NewVar $3) $1 }
-
-
 
 constValue :: { ConstValue }
     : '-' nonnegint { ConstInt (negate $2) }
@@ -199,16 +233,10 @@ constValue :: { ConstValue }
 nonnegConstValue
     : nonnegint   { ConstInt $1 }
     | stringConst { ConstString $1 }
+    | '+' nonnegint { ConstInt $2 }
 
 
 -- types
-
-typeDeclar :: { [Declaration] }
-    : type semilist(typeSpec)  { $2 }
-
-typeSpec :: { Declaration }
-    : ident '=' typeDescr   { NewType $1 $3 }
-
 
 typeDescr :: { Type }
     : baseType { BaseType $1 }
@@ -233,9 +261,9 @@ bound :: { Either Integer Name }
     | '-' nonnegint   { Left (negate $2) }
 
 
-recordFields :: { [(Name,BaseType)] }
+recordFields :: { [(Name,Type)] }
     : {- empty -} { [] }
-    | recordFields ident ':' baseType ';' { ($2,$4) : $1 }
+    | recordFields ident ':' typeDescr ';' { ($2,$4) : $1 }
 
 ----------
 -- Expressions
@@ -262,57 +290,11 @@ expr :: { Expr }
     | ident '(' commalist(expr) ')' { FuncCall $1 $3 }
     | '(' expr ')' { $2 }
 
-------
--- Functions
-
-procedureDeclar :: { Function }
-    : procedure ident funcParams ';' localLabels localVars functionBody
-        { Function $2 $3 Nothing $5 $6 $7 }
-
-functionDeclar :: { Function }
-    : function ident funcParams ':' typeDescr ';' localLabels
-            localVars functionBody
-        { Function $2 $3 (Just $5) $7 $8 $9 }
-
-functionBody :: { Maybe [Statement] }
-    : compoundStatement     { Just $1 }
-    | forward   { Nothing }
-
-funcParams :: { [FuncParam] }
-    : '(' funcParamList ')' { concat (reverse $2) }
-    | {- empty -}          { [] }
-
-funcParamList :: { [[FuncParam]] }
-    : funcParam { [$1] }
-    | funcParamList ';' funcParam  { $3 : $1 }
-
-funcParam :: { [FuncParam] }
-    : maybevar commalistNonempty(ident) ':' typeDescr
-        { [FuncParam n t r | let r = $1, let t = $4, 
-                                n <- $2] }
-
-localVars :: { ParamList }
-    :  { [] }
-    | semilist(localVarDecl) { concat $1 }
-
-localVarDecl :: { ParamList }
-    : maybevar commalistNonempty(ident) ':' typeDescr
-        { fmap (\n -> (n,$4)) $2 }
-
-maybevar :: { Bool }
-    : var   { True } 
-    | {- empty -} { False }
-
-localLabels :: { [Label] }
-    : { [] }
-    | semilist(localLabel) { concat $1 }
-
-localLabel :: { [Label] }
-    : label commalistNonempty(labelName) { $2 }
 
 -----------
 -- Lists
 
+-- this is nonempty.
 semilist(p) : semilisthelper(p) { reverse $1 }
 semilisthelper(p)
     : p ';'                     { [$1] }

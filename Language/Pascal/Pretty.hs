@@ -29,9 +29,8 @@ myhang x = hang x 2
 instance Pretty Program where
     pretty Program{..} = 
         myhang (text "program" <+> pretty progName <> paramList progArgs <> semi)
-        (semicolonList progDecls
-            $$ vcat (map pretty progStmts))
-        <> char '.'
+        (pretty progBlock)
+        $$ char '.'
             
 paramList, commaList :: Pretty a => [a] -> Doc
 paramList [] = empty
@@ -41,52 +40,63 @@ commaList [] = empty
 commaList [x] = pretty x
 commaList (x:xs) = pretty x <> comma <+> commaList xs
 
-paramList' :: ParamList -> Doc
-paramList' = paramList . map f
-  where
-    f (n,t) = pretty n <> colon <> pretty t
 
 semicolonList :: Pretty a => [a] -> Doc
-semicolonList = vcat . map (\d -> pretty d <> semi)
+semicolonList [] = empty
+semicolonList [x] = pretty x
+semicolonList (x:xs) = pretty x <> semi $$ semicolonList xs
 
-instance Pretty Declaration where
-    pretty (NewLabel n) = text "label" <+> pretty n
-    pretty (NewVar n t) = text "var" <+> pretty n <+> colon <+> pretty t
-    pretty (NewType n t) = text "type" <+> pretty n <+> equals <+> pretty t
-    pretty (NewFunction func) = pretty func
-    pretty d = parens $ text $ show d
+semilistOneLine :: Pretty a => [a] -> Doc
+semilistOneLine = hsep . map (\d -> pretty d <> semi)
 
-instance Pretty Function where
-    pretty Function{funcReturnType=Nothing,..}
-        = myhang (text "procedure" <+> text funcName 
-                        <> pretty funcParams <> semi)
-            $ localLabels funcLabels
-              $$ localVars funcLocalVars $$ pretty funcBody
+unlessNull :: [a] -> Doc -> Doc
+unlessNull [] _ = empty
+unlessNull _ d = d
 
-instance Pretty [FuncParam] where
-    pretty [] = empty
-    pretty ps = parens $ commaList ps
+
+instance Pretty Block where
+    pretty Block {..} = vcat
+        [ unlessNull blockLabels $ text "label" <+> commaList blockLabels <> semi
+        , unlessNull blockConstants $ text "const" <+> semilistOneLine (map assign blockConstants)
+        , unlessNull blockTypes $ text "type" <+> semilistOneLine (map assign blockTypes)
+        , unlessNull blockVars $ text "var" <+> semilistOneLine (map assignT blockVars)
+        , vcat (map pretty blockFunctions)
+        , compound blockStatements
+        ]
+
+assign, assignT :: (Pretty a, Pretty b) => (a,b) -> Doc
+assign (x,y) = pretty x <> equals <> pretty y
+assignT (x,y) = pretty x <> colon <> pretty y
+
+
+compound :: StatementList -> Doc
+compound l = myhang (text "begin") (semicolonList l) $$ text "end"
+
+instance Pretty FunctionDecl where
+    pretty FuncForward {..} = pretty funcName <+> pretty funcHeading
+                                <+> semi <+> text "forward"
+    pretty Func {..} = (pretty funcName <+> pretty funcHeading
+                                <+> semi) $$ pretty funcBlock
+
+instance Pretty FuncHeading where
+    pretty FuncHeading{..} = args <+> returntype
+      where
+        returntype = maybe empty (\t -> char ':' <+> pretty t) funcReturnType
+        args = if null funcArgs
+                        then empty
+                        else parens $ commaList funcArgs
 
 instance Pretty FuncParam where
     pretty FuncParam{..} = (if paramByRef then text "var" else empty)
                             <+> pretty paramName <> colon <> pretty paramType
 
-localVars = semicolonList . map (\(n,t) -> text "var" <+> pretty n
-                                            <+> colon <+> pretty t)
-
-localLabels = semicolonList . map (\n -> text "label" <+> pretty n)
-
-instance Pretty (Maybe [Statement]) where
-    pretty Nothing = text "forward"
-    pretty (Just xs) = pretty xs
-
-instance Pretty [Statement] where
-    pretty [] = empty
-    pretty xs = myhang (text "begin") (semicolonList xs) $$ text "end"
+instance Pretty (Maybe Label, Statement) where
+    pretty (Nothing,s) = pretty s
+    pretty (Just l, s) = pretty l <> colon <+> pretty s
 
 instance Pretty Statement where
     pretty AssignStmt {..} = pretty assignTarget <+> text ":=" <+> pretty assignExpr
-    pretty ProcedureCall {..} = pretty funName <> parens (commaList funcArgs)
+    pretty ProcedureCall {..} = pretty funName <> parens (commaList procArgs)
     pretty ForStmt {..} = myhang
                             (text "for" <+> pretty loopVar 
                                 <+> text ":=" 
@@ -103,7 +113,7 @@ instance Pretty Statement where
                 $ (text "then" <+> pretty thenStmt)
                  $$ (text "else" <+> pretty s)
     pretty RepeatStmt {..}
-        = myhang (text "repeat") (pretty loopBody)
+        = myhang (text "repeat") (semicolonList loopBody)
             $$ text "until" <+> (pretty loopExpr)
     pretty WhileStmt {..}
         = myhang (text "while" <+> pretty loopExpr) (pretty loopStmt)
@@ -113,7 +123,7 @@ instance Pretty Statement where
     -- TODO: This doesn't have a semicolon after it in a compound statement.
     pretty (MarkLabel l) = pretty l <> colon
     pretty (Goto l) = text "goto" <+> pretty l
-    pretty (SubBlock ss) = semicolonList ss
+    pretty (CompoundStmt ss) = compound ss
     pretty Write {..} = text (if addNewline then "writeln" else "write")
                          <> parens (commaList writeArgs)
     pretty EmptyStatement = empty

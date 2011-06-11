@@ -3,6 +3,8 @@ module Language.Pascal.Syntax where
 
 type Name = String
 
+type Label = Integer
+
 -- Using:
 -- http://www.chasanc.com/index.php/Compiler/Backus-Naur-Form-BNF-of-Pascal-Language.html
 -- Much better:
@@ -11,28 +13,58 @@ type Name = String
 data Program = Program {
                 progName :: Name,
                 progArgs :: [Name],
-                progDecls :: [Declaration],
-                progStmts :: [Statement]
+                progBlock :: Block
             }
-    deriving Show
+
+data Block = Block {
+                blockLabels :: [Label],
+                blockConstants :: [(Name,ConstValue)],
+                blockTypes :: [(Name,Type)],
+                blockVars :: [(Name,Type)],
+                blockFunctions :: [FunctionDecl],
+                blockStatements :: StatementList
+            }
+
+data FunctionDecl = FuncForward {funcName :: Name, funcHeading :: FuncHeading}
+                 -- TODO: grammar can't tell when we're defining previously-declared
+                 -- forward procedures.
+                 -- | FuncIdent {funcName :: Name, funcBlock :: Block}
+                 | Func {funcName :: Name, funcHeading :: FuncHeading, 
+                         funcBlock :: Block}
+
+data FuncHeading = FuncHeading {
+                    funcArgs :: [FuncParam],
+                    funcReturnType :: Maybe Type -- Nothing if it's a procedure.
+                }
+                
+data FuncParam = FuncParam {paramName :: Name, paramType :: Type, paramByRef :: Bool}
+            deriving Show
+
+
+--------------------------------------------
+
+-- I'm making a simplification here:
+-- Don't allow labels at the top-level of a compound statement.
+
+type StatementList = [(Maybe Label,Statement)]
 
 data Statement =
                AssignStmt {assignTarget :: VarReference, assignExpr :: Expr}
-               | ProcedureCall {funName :: Name, funcArgs :: [Expr]}
+               | ProcedureCall {funName :: Name, procArgs :: [Expr]}
                | IfStmt { ifCond :: Expr, thenStmt :: Statement,
                             elseStmt :: Maybe Statement}
                | ForStmt { loopVar :: Name, forStart, forEnd :: Expr,
                         forDirection :: ForDir,
                         forBody :: Statement}
                | WhileStmt { loopExpr :: Expr, loopStmt :: Statement}
-               | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
+               | RepeatStmt { loopExpr :: Expr, loopBody :: StatementList }
                | CaseStmt { caseExpr :: Expr, caseList :: [CaseElt] }
                | Goto Label
                | MarkLabel Label
                | Write {addNewline :: Bool,
                         writeArgs :: [WriteArg]
                         }
-               | SubBlock [Statement]
+               | CompoundStmt StatementList
                | EmptyStatement
         deriving Show
 
@@ -71,31 +103,6 @@ data Expr
             -- records?
 
 
-data Declaration
-            = NewVar Name Type
-            | NewConst Name ConstValue
-            | NewType Name Type
-            | NewLabel Label
-            | NewFunction Function
-        deriving Show
-
-type Label = Integer -- Name?
-
-data Function = Function {
-                funcName :: Name,
-                funcParams :: [FuncParam],
-                funcReturnType :: Maybe Type, -- Nothing if procedure
-                funcLabels :: [Label],
-                funcLocalVars :: ParamList, -- variables
-                funcBody :: Maybe [Statement] -- or "forward"
-            }
-    deriving Show
-
-type ParamList = [(Name,Type)]
-
-data FuncParam = FuncParam {paramName :: Name, paramType :: Type, paramByRef :: Bool}
-            deriving Show
-
 data ConstValue = ConstInt Integer
                 | ConstString String
         deriving Show
@@ -119,7 +126,7 @@ data Type
                     arrayEltType :: Type
                 }
     | FileType { fileEltType :: Type }
-    | RecordType { recordFields :: [(Name,BaseType)] }
+    | RecordType { recordFields :: [(Name,Type)] }
         deriving Show
 
 data BaseType
