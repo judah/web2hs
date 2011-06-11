@@ -130,6 +130,7 @@ statement :: { Statement }
 varRef :: { VarReference }
     : ident { NameRef $1 }
     | ident '[' commalistNonempty(expr) ']' { ArrayRef $1 $3 }
+    | ident '^' { DeRef $1 }
 
 labelName :: { Label }
     : int { $1 }

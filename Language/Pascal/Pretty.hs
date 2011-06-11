@@ -114,6 +114,7 @@ instance Pretty ForDir where
 instance Pretty VarReference where
     pretty (NameRef n) = pretty n
     pretty (ArrayRef n e) = pretty n <> lbrack <> commaList e <> rbrack
+    pretty (DeRef n) = pretty n <> char '^'
 
 instance Pretty Expr where
     pretty (ConstExpr c) = pretty c
