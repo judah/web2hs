@@ -279,8 +279,12 @@ functionBody :: { Maybe [Statement] }
     | forward   { Nothing }
 
 funcParams :: { [FuncParam] }
-    : '(' commalist(funcParam) ')' { concat $2 }
+    : '(' funcParamList ')' { concat (reverse $2) }
     | {- empty -}          { [] }
+
+funcParamList :: { [[FuncParam]] }
+    : funcParam { [$1] }
+    | funcParamList ';' funcParam  { $3 : $1 }
 
 funcParam :: { [FuncParam] }
     : maybevar commalistNonempty(ident) ':' typeDescr
