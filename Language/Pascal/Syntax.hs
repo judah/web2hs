@@ -32,6 +32,7 @@ data Statement =
                         writeArgs :: [WriteArg]
                         }
                | SubBlock [Statement]
+               | EmptyStatement
         deriving Show
 
 -- Unsure about these...

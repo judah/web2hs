@@ -110,6 +110,7 @@ instance Pretty Statement where
     pretty (SubBlock ss) = semicolonList ss
     pretty Write {..} = text (if addNewline then "writeln" else "write")
                          <> parens (commaList writeArgs)
+    pretty EmptyStatement = empty
 
 instance Pretty WriteArg where
     pretty (WritePlain e) = pretty e

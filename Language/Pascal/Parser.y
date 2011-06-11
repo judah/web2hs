@@ -126,6 +126,7 @@ statement :: { Statement }
     | write '(' commalist(writeArg) ')' { Write False $3 }
     | writeln '(' commalist(writeArg) ')' { Write True $3 }
     | compoundStatement     { SubBlock $1 }
+    | {- empty -}           { EmptyStatement }
 
 varRef :: { VarReference }
     : ident { NameRef $1 }
