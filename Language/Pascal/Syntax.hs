@@ -39,6 +39,7 @@ data Statement =
 data VarReference = NameRef Name
                   | ArrayRef Name [Expr]
                   | DeRef Name -- pointer dereference; also for files
+                  | RecordRef Name Name
                 deriving Show
 
 data ForDir = UpTo | DownTo
@@ -56,6 +57,7 @@ data Expr
           | FuncCall Name [Expr]
           | BinOp Expr BinOp Expr
           | NotOp Expr
+          | Negate Expr
           | ArrayAccess Name [Expr]
     deriving Show
             -- records?

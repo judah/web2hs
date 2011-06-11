@@ -25,6 +25,7 @@ import Language.Pascal.Syntax
 %left '*' '/' div mod and
 %left '=' "<>" '<' "<=" '>' ">="
 %left not
+%left NEG
 
 %token
     and             { TokAnd }
@@ -82,7 +83,7 @@ import Language.Pascal.Syntax
     ">="	    { TokGTEQ }
     ":="	    { TokEQDef }
     ident           { TokIdent $$ }
-    nonnegint             { TokInt $$ }
+    nonnegint       { TokInt $$ }
     stringConst     { TokStringConst $$ }
     
 %%
@@ -132,9 +133,10 @@ varRef :: { VarReference }
     : ident { NameRef $1 }
     | ident '[' commalistNonempty(expr) ']' { ArrayRef $1 $3 }
     | ident '^' { DeRef $1 }
+    | ident '.' ident { RecordRef $1 $3 }
 
 labelName :: { Label }
-    : int { $1 }
+    : nonnegint { $1 }
 
 forDir :: { ForDir }
     : to    { UpTo }
@@ -142,7 +144,7 @@ forDir :: { ForDir }
 
 writeArg :: { WriteArg }
     : expr          { WritePlain $1 }
-    | expr ':' int  { WritePadded $3 $1 }
+    | expr ':' nonnegint  { WritePadded $3 $1 }
 
 declarations : list(declaration) { concat $1 }
 
@@ -172,7 +174,12 @@ varDeclarSingle :: { [Declaration] }
 
 
 constValue :: { ConstValue }
-    : int   { ConstInt $1 }
+    : '-' nonnegint { ConstInt (negate $2) }
+    | nonnegConstValue { $1 }
+
+-- To remove reduce/reduce conflicts with '-'
+nonnegConstValue
+    : nonnegint   { ConstInt $1 }
     | stringConst { ConstString $1 }
 
 
@@ -203,16 +210,10 @@ maybepacked
 
 bound :: { Either Integer Name }
     : ident     { Right $1 }
-    | int       { Left $1 }
+    | nonnegint       { Left $1 }
+    | '+' nonnegint   { Left $2 }
+    | '-' nonnegint   { Left (negate $2) }
 
-
-intValue :: { Integer }
-    : int { $1 }
-
-int :: { Integer }
-    : nonnegint { $1 }
-    | '-' nonnegint { negate $2 }
-    | '+' nonnegint { $2 }
 
 recordFields :: { [(Name,BaseType)] }
     : {- empty -} { [] }
@@ -237,7 +238,8 @@ expr :: { Expr }
     | expr '>' expr { BinOp $1 OpGT $3 }
     | expr ">=" expr { BinOp $1 GTEQ $3 }
     | not expr { NotOp $2 }
-    | constValue    { ConstExpr $1 }
+    | '-' expr %prec NEG { Negate $2 }
+    | nonnegConstValue { ConstExpr $1 }
     | varRef { VarExpr $1 }
     | ident '(' commalist(expr) ')' { FuncCall $1 $3 }
     | '(' expr ')' { $2 }

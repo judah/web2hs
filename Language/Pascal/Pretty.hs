@@ -127,6 +127,7 @@ instance Pretty VarReference where
     pretty (NameRef n) = pretty n
     pretty (ArrayRef n e) = pretty n <> lbrack <> commaList e <> rbrack
     pretty (DeRef n) = pretty n <> char '^'
+    pretty (RecordRef n f) = pretty n <> char '.' <> pretty f
 
 instance Pretty Expr where
     pretty (ConstExpr c) = pretty c
@@ -138,6 +139,7 @@ instance Pretty Expr where
     -- TODO: precendence
     pretty (BinOp e1 o e2) = parens $ pretty e1 <+> pretty o <+> pretty e2
     pretty (NotOp e) = parens $ text "not" <+> pretty e
+    pretty (Negate e) = char '-' <> pretty e
     pretty (ArrayAccess n e) = pretty n <> brackets (commaList e)
 
 instance Pretty BinOp where
