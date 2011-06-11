@@ -73,10 +73,16 @@ compound :: StatementList -> Doc
 compound l = myhang (text "begin") (semicolonList l) $$ text "end"
 
 instance Pretty FunctionDecl where
-    pretty FuncForward {..} = pretty funcName <+> pretty funcHeading
-                                <+> semi <+> text "forward"
-    pretty Func {..} = (pretty funcName <+> pretty funcHeading
-                                <+> semi) $$ pretty funcBlock
+    pretty FuncForward {..} = funcKind funcHeading 
+                                <+> pretty funcName <+> pretty funcHeading
+                                <> semi <+> text "forward"
+    pretty Func {..} = (funcKind funcHeading <+> pretty funcName <+> pretty funcHeading
+                                <> semi) $$ pretty funcBlock
+
+funcKind :: FuncHeading -> Doc
+funcKind FuncHeading {..} = case funcReturnType of
+                                Nothing -> text "procedure"
+                                Just _ -> text "function"
 
 instance Pretty FuncHeading where
     pretty FuncHeading{..} = args <+> returntype
