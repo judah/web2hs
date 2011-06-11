@@ -74,6 +74,7 @@ preprocesses those away.
     record-type = 'record' field-list 'end'.
     field-list = [ ( fixed-part [ ';' variant-part ] | variant-part ) [ ';' ] ].
     fixed-part = record-section { ';' record-section }.
+    record-section = identifier-list ':' type-denoter.
     variant = case-constant-list ':' '(' field-list ')'.
     variant-part = 'case' variant-selector 'of' variant { ';' variant }.
     variant-selector = [ tag-field ':' ] tag-type.
@@ -292,7 +293,6 @@ latter's arguments are optional.
                                      'of' type-identifier.
     pointer-type = new-pointer-type | pointer-type-identifier.
     real-type-identifier = type-identifier.
-    record-section = identifier-list ':' type-denoter.
     relational-operator = '=' | '<>' | '<' | '>' | '<=' | '>=' | 'in'.
     set-constructor = '[' [ member-designator { ',' member-designator } ] ']'.
     set-type = 'set' 'of' base-type.
