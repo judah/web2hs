@@ -139,7 +139,6 @@ I don't think that TeX uses pointer types.
     function-declaration = function-heading ';'directive
                          | function-identification ';' function-block
                          | function-heading ';' function-block.
-    function-designator = function-identifier [ actual-parameter-list ].
     function-heading = 'function' identifier [ formal-parameter-list ] ':' result-type.
     function-identification = 'function' function-identifier.
     function-identifier = identifier.
@@ -215,13 +214,40 @@ A `field-designator-identifier` is used in `with` statements.
                          | repetitive-statement | with-statement.
 
     empty-statement =.
-
+    goto-statement = 'goto' label.
     
     assignment-statement = ( variable-access | function-identifier ) ':=' expression .
 
     procedure-statement = procedure-identifier ( [ actual-parameter-list ]
                           | read-parameter-list | readln-parameter-list
                           | write-parameter-list | writeln-parameter-list ) .
+
+    actual-parameter = expression | variable-access | procedure-identifier
+                     | function-identifier.
+    actual-parameter-list = '(' actual-parameter { ',' actual-parameter } ')' .
+
+    conditional-statement = if-statement | case-statement.
+    if-statement = 'if' Boolean-expression 'then' statement [ else-part ].
+    else-part = 'else' statement.
+    case-statement = 'case' case-index 'of' case-list-element
+                     { ';' case-list-element } [ ';' ] 'end' .
+    case-index = expression .
+    case-list-element = case-constant-list ':' statement .
+    case-constant = constant .
+    case-constant-list = case-constant { ',' case-constant } .
+
+    repetitive-statement = repeat-statement | while-statement | for-statement.
+    while-statement = 'while' Boolean-expression 'do' statement.
+    repeat-statement = 'repeat' statement-sequence 'until' Boolean-expression.
+    for-statement = 'for' control-variable ':=' initial-value ( 'to' | 'downto' ) final-value
+    Boolean-expression = expression .
+    initial-value = expression.
+    final-value = expression.
+    control-variable = entire-variable .
+    
+From the ISO:
+    An if-statement without an else-part shall not be immediately followed by the token else.
+    An else-part is thus paired with the nearest preceding otherwise unpaired then.
 
 ### Syntax of read and write
 
@@ -238,37 +264,24 @@ are optional.
     writeln-parameter-list = [ '(' ( file-variable | write-parameter )
                              { ',' write-parameter } ')' ].
      
-    
+
+### With statements
+
+    with-statement = 'with' record-variable-list 'do' statement.
+    record-variable-list = record-variable f ',' record-variable g.
+
 ## Rest
-    actual-parameter = expression | variable-access | procedure-identifier
-                     | function-identifier.
-    actual-parameter-list = '(' actual-parameter { ',' actual-parameter } ')' .
     adding-operator = '+' | '-' | 'or' .
     apostrophe-image = '"' .
     base-type = ordinal-type .
-    Boolean-expression = expression .
     bound-identifier = identifier .
-    case-constant = constant .
-    case-constant-list = case-constant { ',' case-constant } .
-    case-index = expression .
-    case-list-element = case-constant-list ':' statement .
-    case-statement = 'case' case-index 'of' case-list-element
-                     { ';' case-list-element } [ ';' ] 'end' .
-    conditional-statement = if-statement | case-statement.
     
-    control-variable = entire-variable .
-    else-part = 'else' statement.
     expression = simple-expression [ relational-operator simple-expression ].
     factor > bound-identifier.
     factor > variable-access | unsigned-constant | function-designator
            | set-constructor | '(' expression ')' | 'not' factor.
-    final-value = expression.
-    for-statement = 'for' control-variable ':=' initial-value ( 'to' | 'downto' ) final-value
-                    'do' statement.
-    goto-statement = 'goto' label.
-    if-statement = 'if' Boolean-expression 'then' statement [ else-part ].
+    function-designator = function-identifier [ actual-parameter-list ].
     index-type-specification = identifier '..' identifier ':' ordinal-type-identifier.
-    initial-value = expression.
     member-designator = expression [ '..' expression ].
     multiplying-operator = '*' | '/' | 'div' | 'mod' | 'and'.
     packed-conformant-array-schema = 'packed' 'array' '[' index-type-specification ']'
@@ -278,10 +291,7 @@ are optional.
                             { ',' variable-access } ')' ].
     real-type-identifier = type-identifier.
     record-section = identifier-list ':' type-denoter.
-    record-variable-list = record-variable f ',' record-variable g.
     relational-operator = '=' | '<>' | '<' | '>' | '<=' | '>=' | 'in'.
-    repeat-statement = 'repeat' statement-sequence 'until' Boolean-expression.
-    repetitive-statement = repeat-statement | while-statement | for-statement.
     result-type = simple-type-identifier | pointer-type-identifier.
     set-constructor = '[' [ member-designator { ',' member-designator } ] ']'.
     set-type = 'set' 'of' base-type.
@@ -302,6 +312,4 @@ are optional.
     unsigned-constant = unsigned-number | character-string | constant-identifier | 'nil'.
     unsigned-number = unsigned-integer | unsigned-real.
     variable-identifier = identifier.
-    while-statement = 'while' Boolean-expression 'do' statement.
-    with-statement = 'with' record-variable-list 'do' statement.
     
