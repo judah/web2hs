@@ -47,7 +47,7 @@ semicolonList [x] = pretty x
 semicolonList (x:xs) = pretty x <> semi $$ semicolonList xs
 
 semilistOneLine :: Pretty a => [a] -> Doc
-semilistOneLine = hsep . map (\d -> pretty d <> semi)
+semilistOneLine = sep . map (\d -> pretty d <> semi)
 
 unlessNull :: [a] -> Doc -> Doc
 unlessNull [] _ = empty
