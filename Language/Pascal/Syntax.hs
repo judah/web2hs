@@ -26,6 +26,7 @@ data Statement =
                         forBody :: Statement}
                | WhileStmt { loopExpr :: Expr, loopStmt :: Statement}
                | RepeatStmt { loopExpr :: Expr, loopBody :: Body}
+               | CaseStmt { caseExpr :: Expr, caseList :: [CaseElt] }
                | Goto Label
                | MarkLabel Label
                | Write {addNewline :: Bool,
@@ -44,6 +45,13 @@ data VarReference = NameRef Name
 
 data ForDir = UpTo | DownTo
         deriving Show
+
+data CaseElt = CaseElt {
+               -- TODO: In Pascal, cases can be any constant identifier
+                caseConstants :: [Maybe ConstValue], -- nothing if "others:"
+                caseStmt :: Statement
+                }
+    deriving Show
 
 data WriteArg = WritePadded Integer Expr | WritePlain Expr
     deriving Show

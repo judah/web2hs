@@ -107,6 +107,9 @@ instance Pretty Statement where
             $$ text "until" <+> (pretty loopExpr)
     pretty WhileStmt {..}
         = myhang (text "while" <+> pretty loopExpr) (pretty loopStmt)
+    pretty CaseStmt {..} = (myhang (text "case" <+> pretty caseExpr <+> text "of")
+                            $ semicolonList caseList)
+                            $$ text "end"
     -- TODO: This doesn't have a semicolon after it in a compound statement.
     pretty (MarkLabel l) = pretty l <> colon
     pretty (Goto l) = text "goto" <+> pretty l
@@ -128,6 +131,14 @@ instance Pretty VarReference where
     pretty (ArrayRef n e) = pretty n <> lbrack <> commaList e <> rbrack
     pretty (DeRef n) = pretty n <> char '^'
     pretty (RecordRef n f) = pretty n <> char '.' <> pretty f
+
+instance Pretty CaseElt where
+    pretty CaseElt {..} = commaList (map caseConst caseConstants) <+> colon
+                            <+> pretty caseStmt
+        where
+            caseConst Nothing = text "others"
+            caseConst (Just e) = pretty e
+
 
 instance Pretty Expr where
     pretty (ConstExpr c) = pretty c

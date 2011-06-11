@@ -49,6 +49,7 @@ import Language.Pascal.Syntax
     not		    { TokNot }
     of		    { TokOf }
     or		    { TokOr }
+    others	    { TokOthers }
     packed	    { TokPacked }
     procedure	    { TokProcedure }
     program	    { TokProgram }
@@ -124,6 +125,7 @@ statement :: { Statement }
     | repeat semilist(statement) until expr
         { RepeatStmt $4 $2 }
     | while expr do statement { WhileStmt $2 $4 }
+    | case expr of caseEltList { CaseStmt $2 $4 }
     | write '(' commalist(writeArg) ')' { Write False $3 }
     | writeln '(' commalist(writeArg) ')' { Write True $3 }
     | compoundStatement     { SubBlock $1 }
@@ -145,6 +147,22 @@ forDir :: { ForDir }
 writeArg :: { WriteArg }
     : expr          { WritePlain $1 }
     | expr ':' nonnegint  { WritePadded $3 $1 }
+
+caseEltList :: { [CaseElt] }
+    : caseEltListHelper end    { reverse $1 }
+    | caseEltListHelper caseElt end { reverse ($2 : $1) }
+
+caseEltListHelper :: { [CaseElt] }
+    : caseElt ';'      { [$1] }
+    | caseEltListHelper caseElt ';' { $2 : $1 }
+
+caseElt :: { CaseElt }
+    : commalistNonempty(constValueOrOthers) ':' statement
+            { CaseElt $1 $3 }
+
+constValueOrOthers :: { Maybe ConstValue }
+    : others        { Nothing }
+    | constValue    { Just $1 }
 
 declarations : list(declaration) { concat $1 }
 

@@ -42,6 +42,7 @@ mod		{ tok TokMod }
 not		{ tok TokNot }
 of		{ tok TokOf }
 or		{ tok TokOr }
+others		{ tok TokOthers }
 packed		{ tok TokPacked }
 procedure	{ tok TokProcedure }
 program		{ tok TokProgram }
@@ -111,6 +112,7 @@ data Token
     | TokNot
     | TokOf
     | TokOr
+    | TokOthers
     | TokPacked
     | TokProcedure
     | TokProgram

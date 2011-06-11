@@ -2,7 +2,9 @@ Maybe rename module Hierarchy to make "Web" explicit?
 Conflicts (anything more than operator precedence and if/then/else?)
 
 Missing features from parser:
- - "case" expressions
+ - "case" statements:
+    - cases can be arbitrary constants.  Unclear if TeX ever actually does
+      that.
  - Possibly keywords from ISO: in, nil, set
  - Anything else?
 
