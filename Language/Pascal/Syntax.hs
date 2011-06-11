@@ -38,9 +38,9 @@ data Statement =
 
 -- Unsure about these...
 data VarReference = NameRef Name
-                  | ArrayRef Name [Expr]
-                  | DeRef Name -- pointer dereference; also for files
-                  | RecordRef Name Name
+                  | ArrayRef VarReference [Expr]
+                  | DeRef VarReference -- pointer dereference; also for files
+                  | RecordRef VarReference Name
                 deriving Show
 
 data ForDir = UpTo | DownTo

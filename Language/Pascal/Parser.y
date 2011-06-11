@@ -133,9 +133,9 @@ statement :: { Statement }
 
 varRef :: { VarReference }
     : ident { NameRef $1 }
-    | ident '[' commalistNonempty(expr) ']' { ArrayRef $1 $3 }
-    | ident '^' { DeRef $1 }
-    | ident '.' ident { RecordRef $1 $3 }
+    | varRef'[' commalistNonempty(expr) ']' { ArrayRef $1 $3 }
+    | varRef '^' { DeRef $1 }
+    | varRef '.' ident { RecordRef $1 $3 }
 
 labelName :: { Label }
     : nonnegint { $1 }

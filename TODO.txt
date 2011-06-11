@@ -8,6 +8,8 @@ Missing features from parser:
  - Possibly keywords from ISO: in, nil, set
  - Anything else?
 
+Pretty-print expressions with parentheses better.
+
 Lexer errors aren't reported well.  (E.g., when I didn't lex periods.)
 
 Finish pretty-printer for the whole AST, and fix semicolons/begin..end blocks.
