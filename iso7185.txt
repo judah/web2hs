@@ -3,6 +3,18 @@ http://pascal-central.com/iso7185.html#6.7 Expressions
 which is a web copy (partially OCR'd) of the grammar used by ISO7185.
 
 ## Lexer
+### Reserved keywords
+
+    word-symbol = 'and' | 'array' | 'begin' | 'case' | 'const' | 'div'
+                | 'do' | 'downto' | 'else' | 'end' | 'file' | 'for'
+                | 'function' | 'goto' | 'if' | 'in' | 'label' | 'mod'
+                | 'nil' | 'not' | 'of' | 'or' | 'packed' | 'procedure'
+                | 'program' | 'record' | 'repeat' | 'set' | 'then'
+                | 'to' | 'type' | 'until' | 'var' | 'while' | 'with'.
+    special-symbol = '+' | '~' | '*' | '/' | '=' | '<' | '>' | '[' | ']'
+                   | '.' | ',' | ':' |' ;' | '"' | '(' | ')'
+                   | '<>' | '<=' | '>=' | ' :=' | '..' | word-symbol
+ 
 ### Identifiers
 
     identifier = letter f letter | digit g.
@@ -33,6 +45,8 @@ Note that `letter` also implicitly includes upper-case characters.
 ### Constants
 
     character-string = ''' string-element { string-element } '''
+    string-character = one-of-a-set-of-implementation-defined-characters.
+    string-element = apostrophe-image | string-character.
 
     constant = [ sign ] ( unsigned-number | constant-identifier )
              | character-string.
@@ -98,6 +112,15 @@ I don't think that TeX uses pointer types.
 
     type-definition = identifier '=' type-denoter.
     type-definition-part = [ 'type' type-definition ' ;' { type-definition ';' } ] .
+
+    variable-declaration = identifier-list ':' type-denoter.
+    variable-declaration-part = [ 'var' variable-declaration ' ;' { variable-declaration ';' } ] .
+
+    procedure-and-function-declaration-part = { ( procedure-declaration
+                                                | function-declaration ) ';' } .
+
+    statement-part = compound-statement.
+
 ## Declaring procedures and functions
 
 ### Procedures
@@ -151,53 +174,100 @@ This is an extension that TeX doesn't use.
     conformant-array-schema = packed-conformant-array-schema
                             | unpacked-conformant-array-schema.
      
+    variable-conformant-array-specification = 'var' identifier-list ':' conformant-array-schema.
+    value-conformant-array-specification = identifier-list ':' conformant-array-schema.
 
-   
+## Variable accesses
 
+    variable-access = entire-variable | component-variable | identified-variable
+                    | buffer-variable.
+    entire-variable = variable-identifier.
+    component-variable = indexed-variable | field-designator.
+
+    indexed-variable = array-variable '[' index-expression, { ',' index-expression } ']'
+    array-variable = variable-access .
+    index-expression = expression.
+    
+    field-designator = record-variable '.' field-specifier | field-designator-identifier.
+    record-variable = variable-access.
+    field-specifier = field-identifier.
+    field-identifier = identifier.
+
+    buffer-variable = file-variable '^' .
+    file-variable = variable-access.
+    identified-variable = pointer-variable '^'.
+    pointer-variable = variable-access.
+
+
+A `field-designator-identifier` is used in `with` statements.
+
+    field-designator-identifier = identifier.
+
+## Statements
+
+
+    compound-statement = 'begin' statement-sequence 'end'.
+    statement-sequence = statement { ';' statement }.
+    statement = [ label ' :' ] ( simple-statement | structured-statement ).
+    simple-statement = empty-statement | assignment-statement
+                     | procedure-statement | goto-statement.
+    structured-statement = compound-statement | conditional-statement
+                         | repetitive-statement | with-statement.
+
+    empty-statement =.
+
+    
+    assignment-statement = ( variable-access | function-identifier ) ':=' expression .
+
+    procedure-statement = procedure-identifier ( [ actual-parameter-list ]
+                          | read-parameter-list | readln-parameter-list
+                          | write-parameter-list | writeln-parameter-list ) .
+
+### Syntax of read and write
+
+
+    read-parameter-list = '(' [ file-variable ',' ] variable-access f ',' variable-access ')'
+    readln-parameter-list = [ '(' ( file-variable | variable-access )
+
+The only difference between the syntax of `write` and `writeln` is that `writeln`'s arguments
+are optional.
+
+    write-parameter = expression [ ':' expression [ ':' expression ] ].
+    write-parameter-list = '(' [ file-variable ',' ] write-parameter
+                           { ',' write-parameter } ')'.
+    writeln-parameter-list = [ '(' ( file-variable | write-parameter )
+                             { ',' write-parameter } ')' ].
+     
+    
 ## Rest
     actual-parameter = expression | variable-access | procedure-identifier
                      | function-identifier.
     actual-parameter-list = '(' actual-parameter { ',' actual-parameter } ')' .
     adding-operator = '+' | '-' | 'or' .
     apostrophe-image = '"' .
-    array-variable = variable-access .
-    assignment-statement = ( variable-access | function-identifier ) ':=' expression .
     base-type = ordinal-type .
     Boolean-expression = expression .
     bound-identifier = identifier .
-    buffer-variable = file-variable '"' .
     case-constant = constant .
     case-constant-list = case-constant { ',' case-constant } .
     case-index = expression .
     case-list-element = case-constant-list ':' statement .
     case-statement = 'case' case-index 'of' case-list-element
                      { ';' case-list-element } [ ';' ] 'end' .
-    component-variable = indexed-variable | field-designator.
-    compound-statement = 'begin' statement-sequence 'end'.
     conditional-statement = if-statement | case-statement.
     
     control-variable = entire-variable .
     else-part = 'else' statement.
-    empty-statement =.
-    entire-variable = variable-identifier.
     expression = simple-expression [ relational-operator simple-expression ].
     factor > bound-identifier.
     factor > variable-access | unsigned-constant | function-designator
            | set-constructor | '(' expression ')' | 'not' factor.
-    field-designator = record-variable '.' field-specifier | field-designator-identifier.
-    field-designator-identifier = identifier.
-    field-identifier = identifier.
-    field-specifier = field-identifier.
-    file-variable = variable-access.
     final-value = expression.
     for-statement = 'for' control-variable ':=' initial-value ( 'to' | 'downto' ) final-value
                     'do' statement.
     goto-statement = 'goto' label.
-    identified-variable = pointer-variable '"'.
     if-statement = 'if' Boolean-expression 'then' statement [ else-part ].
-    index-expression = expression.
     index-type-specification = identifier '..' identifier ':' ordinal-type-identifier.
-    indexed-variable = array-variable '[' index-expression, f ',' index-expression
     initial-value = expression.
     member-designator = expression [ '..' expression ].
     multiplying-operator = '*' | '/' | 'div' | 'mod' | 'and'.
@@ -205,18 +275,9 @@ This is an extension that TeX doesn't use.
                                      'of' type-identifier.
     pointer-type = new-pointer-type | pointer-type-identifier.
     pointer-type-identifier = type-identifier.
-    pointer-variable = variable-access.
-    procedure-and-function-declaration-part = { ( procedure-declaration
-                                                | function-declaration ) ';' } .
-    procedure-statement = procedure-identifier ( [ actual-parameter-list ]
-                          | read-parameter-list | readln-parameter-list
-                          | write-parameter-list | writeln-parameter-list ) .
-   read-parameter-list = '(' [ file-variable ',' ] variable-access f ',' variable-access ')'
-    readln-parameter-list = [ '(' ( file-variable | variable-access )
                             { ',' variable-access } ')' ].
     real-type-identifier = type-identifier.
     record-section = identifier-list ':' type-denoter.
-    record-variable = variable-access.
     record-variable-list = record-variable f ',' record-variable g.
     relational-operator = '=' | '<>' | '<' | '>' | '<=' | '>=' | 'in'.
     repeat-statement = 'repeat' statement-sequence 'until' Boolean-expression.
@@ -228,20 +289,8 @@ This is an extension that TeX doesn't use.
     signed-number = signed-integer | signed-real.
     signed-real = [ sign ] unsigned-real.
     simple-expression = [ sign ] term f adding-operator term g.
-    simple-statement = empty-statement | assignment-statement
-                     | procedure-statement | goto-statement.
     simple-type = ordinal-type | real-type-identifier.
     simple-type-identifier = type-identifier.
-    special-symbol = '+' | '~' | '*' | '/' | '=' | '<' | '>' | '[' | ']'
-                   | '.' | ',' | ':' |' ;' | '"' | '(' | ')'
-                   | '<>' | '<=' | '>=' | ' :=' | '..' | word-symbol
-    statement = [ label ' :' ] ( simple-statement | structured-statement ).
-    statement-part = compound-statement.
-    statement-sequence = statement f ';' statement g.
-    string-character = one-of-a-set-of-implementation-defined-characters.
-    string-element = apostrophe-image | string-character.
-    structured-statement = compound-statement | conditional-statement
-                         | repetitive-statement | with-statement.
     structured-type = new-structured-type | structured-type-identifier.
     structured-type-identifier = type-identifier.
     tag-field = identifier.
@@ -252,25 +301,7 @@ This is an extension that TeX doesn't use.
          'of' ( type-identifier | conformant-array-schema ).
     unsigned-constant = unsigned-number | character-string | constant-identifier | 'nil'.
     unsigned-number = unsigned-integer | unsigned-real.
-   value-conformant-array-specification = identifier-list ':' conformant-array-schema.
-    variable-access = entire-variable | component-variable | identified-variable
-                    | buffer-variable.
-    variable-conformant-array-specification = 'var' identifier-list ':' conformant-array-schema.
-    variable-declaration = identifier-list ':' type-denoter.
-    variable-declaration-part = [ 'var' variable-declaration ' ;' { variable-declaration ';' } ] .
     variable-identifier = identifier.
     while-statement = 'while' Boolean-expression 'do' statement.
     with-statement = 'with' record-variable-list 'do' statement.
-    word-symbol = 'and' | 'array' | 'begin' | 'case' | 'const' | 'div'
-                | 'do' | 'downto' | 'else' | 'end' | 'file' | 'for'
-                | 'function' | 'goto' | 'if' | 'in' | 'label' | 'mod'
-                | 'nil' | 'not' | 'of' | 'or' | 'packed' | 'procedure'
-                | 'program' | 'record' | 'repeat' | 'set' | 'then'
-                | 'to' | 'type' | 'until' | 'var' | 'while' | 'with'.
-    write-parameter = expression [ ':' expression [ ':' expression ] ].
-    write-parameter-list = '(' [ file-variable ',' ] write-parameter
-                           { ',' write-parameter } ')'.
-     
-    writeln-parameter-list = [ '(' ( file-variable | write-parameter )
-                             { ',' write-parameter } ')' ].
     
