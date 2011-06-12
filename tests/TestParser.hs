@@ -18,6 +18,7 @@ testPrograms = [ "pooltype.p"
                , "tangle.p"
                , "weave.p"
                , "dvitype.p"
+               , "tex.p"
                ]
 
 runTests :: IO ()
