@@ -249,7 +249,8 @@ typeDescr :: { Type }
                         { ArrayType $4 $7 }
     | maybepacked file of typeDescr
                         { FileType $4 }
-    | maybepacked record recordFields end { RecordType (reverse $3) }
+    | maybepacked record fieldList end { RecordType $3 }
+
 
 baseType :: { BaseType }
     : ident { NamedType $1 }
@@ -265,10 +266,32 @@ bound :: { Either Integer Name }
     | '+' nonnegint   { Left $2 }
     | '-' nonnegint   { Left (negate $2) }
 
+fieldList :: { FieldList }
+    : fixedFields { FieldList $1 Nothing }
+    | fixedFields  variantFields
+                        { FieldList $1 (Just $2) }
+    | variantFields
+                        { FieldList [] (Just $1) }
 
-recordFields :: { [(Name,Type)] }
-    : {- empty -} { [] }
-    | recordFields ident ':' typeDescr ';' { ($2,$4) : $1 }
+fixedFields :: { Fields }
+    : fixedFieldsHelper { concat $ reverse $1 }
+    | fixedFieldsHelper ';' { concat $ reverse $1 }
+
+fixedFieldsHelper :: { [Fields] }
+    : recordSelection { [$1] }
+    | fixedFieldsHelper ';' recordSelection { $3 : $1 }
+
+recordSelection :: { Fields }
+    : commalistNonempty(ident) ':' typeDescr
+        { [(n::Name,t::Type) | let ns = $1, let t = $3, n <- ns] }
+
+variantFields :: { Variant }
+    : case typeDescr of semilist(variant)
+        { Variant $2 $4 }
+
+variant :: { (Integer,Fields) }
+    : nonnegint ':' '(' fixedFields')' { ($1,$4) }
+
 
 ----------
 -- Expressions

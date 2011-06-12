@@ -215,11 +215,26 @@ instance Pretty Type where
     pretty ArrayType {..} = text "array" <> brackets (commaList arrayIndexType)
                                 <+> text "of" <+> pretty arrayEltType
     pretty FileType {..} = text "file" <+> text "of" <+> pretty fileEltType
-    pretty RecordType {..} = myhang (text "record")
-                            (semicolonList $ map prettyField recordFields)
-                        $$ text "end"
-        where
-            prettyField (n,b) = pretty n <> colon <> pretty b
+    pretty (RecordType FieldList {..}) = myhang (text "record") internals $$ text "end"
+      where
+        internals = case variantPart of
+                        Nothing -> prettyFields fixedPart
+                        Just v
+                            | null fixedPart -> prettyVariant v
+                            | otherwise      -> prettyFields fixedPart
+                                                    <> semi
+                                                    $$ prettyVariant v
+
+prettyFields :: Fields -> Doc
+prettyFields = semicolonList . map assignT
+
+prettyVariant :: Variant -> Doc
+prettyVariant Variant {..} = myhang (text "case" <+> pretty variantSelector
+                                        <+> text "of")
+                                (semicolonList $ map fieldChoice variantFields)
+    where
+        fieldChoice (n,fs) = pretty n <> colon <+> prettyFields fs
+                                
 
 ---------------
 

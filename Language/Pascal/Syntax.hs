@@ -130,7 +130,22 @@ data Type
                     arrayEltType :: Type
                 }
     | FileType { fileEltType :: Type }
-    | RecordType { recordFields :: [(Name,Type)] }
+    | RecordType { recordFields :: FieldList }
+        deriving Show
+
+--  NOTE: TeX only requires a subset of Pascal's record functionality.
+data FieldList = FieldList {
+                        fixedPart :: Fields,
+                        variantPart :: Maybe Variant
+                    }
+            deriving Show
+
+type Fields = [(Name,Type)]
+
+data Variant = Variant {
+                variantSelector :: Type,
+                variantFields :: [(Integer,Fields)]
+                }
         deriving Show
 
 data BaseType
