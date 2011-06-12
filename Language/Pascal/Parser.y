@@ -19,7 +19,7 @@ import Language.Pascal.Syntax
 %name statement statement
 %name expression expr
 
--- http://www.hkbu.edu.hk/~bba_ism/ISM2110/pas039.htm
+-- As specified in ISO7185
 %left '+' '-' or
 %left '*' '/' div mod and
 %left '=' "<>" '<' "<=" '>' ">="
