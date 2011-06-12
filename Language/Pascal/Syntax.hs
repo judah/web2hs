@@ -151,6 +151,11 @@ data Variant = Variant {
 data BaseType
     = NamedType Name
     -- prim: integer, char, real,
-    | Range {lowerBound, upperBound :: Either Integer Name} -- may refer to a constant
-        
+    | Range {lowerBound, upperBound :: Bound} -- may refer to a constant
+    deriving Show
+
+-- This is not exactly the ISO BNF, but it's enough for TeX.
+data Bound = IntBound Integer
+           | NegBound Bound
+           | VarBound Name
     deriving Show

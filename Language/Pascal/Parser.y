@@ -260,11 +260,11 @@ maybepacked
     : {- empty -} { () }
     | packed    { () }
 
-bound :: { Either Integer Name }
-    : ident     { Right $1 }
-    | nonnegint       { Left $1 }
-    | '+' nonnegint   { Left $2 }
-    | '-' nonnegint   { Left (negate $2) }
+bound :: { Bound }
+    : ident     { VarBound $1 }
+    | nonnegint       { IntBound $1 }
+    | '+' bound { $2 }
+    | '-' bound { NegBound $2 }
 
 fieldList :: { FieldList }
     : fixedFields { FieldList $1 Nothing }

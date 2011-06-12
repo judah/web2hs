@@ -18,10 +18,6 @@ instance Pretty String where
 instance Pretty Integer where
     pretty = integer -- TODO: negative numbers
 
-instance (Pretty a, Pretty b) => Pretty (Either a b) where
-    prettyPrec n (Left x) = prettyPrec n x
-    prettyPrec n (Right y) = prettyPrec n y
-
 -----------------------
 
 myhang x = hang x 2
@@ -209,6 +205,10 @@ instance Pretty BaseType where
     pretty (NamedType n) = pretty n
     pretty Range {..} = pretty lowerBound <> text ".." <> pretty upperBound
 
+instance Pretty Bound where
+    pretty (IntBound n) = pretty n
+    pretty (NegBound b) = pretty b
+    pretty (VarBound n) = pretty n
 
 instance Pretty Type where
     pretty (BaseType t) = pretty t
