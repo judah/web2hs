@@ -92,11 +92,11 @@ instance Pretty FuncParam where
     pretty FuncParam{..} = (if paramByRef then text "var" else empty)
                             <+> pretty paramName <> colon <> pretty paramType
 
-instance Pretty (Maybe Label, Statement) where
+instance Pretty Statement where
     pretty (Nothing,s) = pretty s
     pretty (Just l, s) = pretty l <> colon <+> pretty s
 
-instance Pretty Statement where
+instance Pretty StatementBase where
     pretty AssignStmt {..} = pretty assignTarget <+> text ":=" <+> pretty assignExpr
     pretty ProcedureCall {..} = pretty funName <> parens (commaList procArgs)
     pretty ForStmt {..} = myhang

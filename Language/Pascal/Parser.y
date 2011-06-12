@@ -167,14 +167,14 @@ compoundStatement :: { StatementList }
 statementList :: { StatementList }
     : statementListHelper { reverse $1 }
 statementListHelper :: { StatementList }
-    : statementListElt { [$1] }
-    | statementListHelper ';' statementListElt { $3 : $1 }
-
-statementListElt :: { (Maybe Label, Statement) }
-    : statement { (Nothing,$1) }
-    | labelName ':' statement { (Just $1,$3) }
+    : statement { [$1] }
+    | statementListHelper ';' statement { $3 : $1 }
 
 statement :: { Statement }
+    : statementBase { (Nothing,$1) }
+    | labelName ':' statementBase { (Just $1,$3) }
+
+statementBase :: { StatementBase }
     : varRef ":=" expr { AssignStmt $1 $3 }
     | goto labelName { Goto $2 }
     | ident { ProcedureCall $1 [] }

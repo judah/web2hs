@@ -43,12 +43,11 @@ data FuncParam = FuncParam {paramName :: Name, paramType :: Type, paramByRef :: 
 
 --------------------------------------------
 
--- I'm making a simplification here:
--- Don't allow labels at the top-level of a compound statement.
+type StatementList = [Statement]
 
-type StatementList = [(Maybe Label,Statement)]
+type Statement = (Maybe Label,StatementBase)
 
-data Statement =
+data StatementBase =
                AssignStmt {assignTarget :: VarReference, assignExpr :: Expr}
                | ProcedureCall {funName :: Name, procArgs :: [Expr]}
                | IfStmt { ifCond :: Expr, thenStmt :: Statement,
