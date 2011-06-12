@@ -72,8 +72,8 @@ instance Pretty FunctionDecl where
     pretty FuncForward {..} = funcKind funcHeading 
                                 <+> pretty funcName <+> pretty funcHeading
                                 <> semi <+> text "forward"
-    pretty Func {..} = (funcKind funcHeading <+> pretty funcName <+> pretty funcHeading
-                                <> semi) $$ pretty funcBlock
+    pretty Func {..} = myhang (funcKind funcHeading <+> pretty funcName <+> pretty funcHeading
+                                <> semi) $ pretty funcBlock
 
 funcKind :: FuncHeading -> Doc
 funcKind FuncHeading {..} = case funcReturnType of
