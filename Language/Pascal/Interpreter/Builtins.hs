@@ -6,30 +6,33 @@ import Language.Pascal.Interpreter.Base
 import System.IO hiding (readIO)
 import Prelude hiding (readIO)
 import Control.Monad (when)
+import Control.Monad.IO.Class
 
-openCharFile :: FilePath -> IOMode -> IO (File Char)
-openCharFile path mode = fmap File $ openFile path mode
+eof :: MonadIO m => File a -> m Bool
+eof (File h) = liftIO $ hIsEOF h
 
--- NOTE: This only works for 8-bit sizes.
-openByteFile :: FilePath -> IOMode -> IO (File Int)
-openByteFile path mode = fmap File $ openBinaryFile path mode
+reset :: MonadIO m => File a -> m ()
+reset (File h) = liftIO $ hSeek h AbsoluteSeek 0
 
-eofIO :: File a -> IO Bool
-eofIO (File h) = hIsEOF h
-
-resetIO :: File a -> IO ()
-resetIO (File h) = hSeek h AbsoluteSeek 0
-
-closeIO :: File a -> IO ()
-closeIO (File h) = hClose h
+close :: MonadIO m => File a -> m ()
+close (File h) = liftIO $ hClose h
 
 class FileType a where
     openIO :: FilePath -> IOMode -> IO (File a)
     peekIO :: File a -> IO a
     readIO :: File a -> IO a
 
-getIO :: FileType a => File a -> IO ()
-getIO f = readIO f >> return ()
+open :: (FileType a, MonadIO m) => FilePath -> IOMode -> m (File a)
+open path = liftIO . open path
+
+peekM :: (MonadIO m, FileType a) => File a -> m a
+peekM = liftIO . peekIO
+
+readM :: (MonadIO m, FileType a) => File a -> m a
+readM = liftIO . readIO
+
+get :: (MonadIO m, FileType a) => File a -> m ()
+get f = readM f >> return ()
 
 -- For now, both types will be 8-bit, since that's what TeX does.
 
@@ -37,6 +40,12 @@ instance FileType Char where
     openIO path mode = fmap File $ openBinaryFile path mode
     peekIO (File h) = hLookAhead h
     readIO (File h) = hGetChar h
+
+instance FileType Int where
+    openIO path mode = fmap File $ openBinaryFile path mode
+    peekIO (File h) = fmap fromEnum $ hLookAhead h
+    readIO (File h) = fmap fromEnum $ hGetChar h
+
 
 
 -- TODO: write
