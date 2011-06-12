@@ -11,7 +11,7 @@ import Control.Monad.Trans.Error
 
 import qualified Data.IntMap as IntMap
 
-type File = Handle
+newtype File a = File Handle
 type PArray = Array Int
 
 -- Basic trick was taken from here, but I've definitely seen it elsewhere.
@@ -20,7 +20,8 @@ type PArray = Array Int
 data TypeRep a where
     IntRep :: TypeRep Int
     RealRep :: TypeRep Double
-    FileRep :: TypeRep File
+    CharRep :: TypeRep Char
+    FileRep :: TypeRep a -> TypeRep (File a)
     ArrayRep :: TypeRep a -> TypeRep (PArray a)
     RecordRep :: RecordRep a -> TypeRep (Record a)
 
@@ -40,6 +41,12 @@ instance Typeable Int where
 
 instance Typeable Double where
     typeRep = RealRep
+
+instance Typeable Char where
+    typeRep = CharRep
+
+instance Typeable a => Typeable (File a) where
+    typeRep = FileRep typeRep
 
 instance Typeable a => Typeable (PArray a) where
     typeRep = ArrayRep typeRep
@@ -65,7 +72,10 @@ data TEq a b where Refl :: TEq a a
 typeEq :: TypeRep a -> TypeRep b -> Maybe (TEq a b)
 typeEq IntRep IntRep = Just Refl
 typeEq RealRep RealRep = Just Refl
-typeEq FileRep FileRep = Just Refl
+typeEq CharRep CharRep = Just Refl
+typeEq (FileRep x) (FileRep y) = do
+    Refl <- typeEq x y
+    return Refl
 typeEq (ArrayRep x) (ArrayRep y) = do
     Refl <- typeEq x y
     return Refl
