@@ -79,9 +79,11 @@ preprocesses those away.
     field-list = [ ( fixed-part [ ';' variant-part ] | variant-part ) [ ';' ] ].
     fixed-part = record-section { ';' record-section }.
     record-section = identifier-list ':' type-denoter.
-    variant = case-constant-list ':' '(' field-list ')'.
     variant-part = 'case' variant-selector 'of' variant { ';' variant }.
     variant-selector = [ tag-field ':' ] tag-type.
+    variant = case-constant-list ':' '(' field-list ')'.
+    case-constant-list = case-constant { ',' case-constant } .
+    case-constant = constant .
 
     file-type = 'file' 'of' component-type.
 
@@ -241,8 +243,6 @@ A `field-designator-identifier` is used in `with` statements.
                      { ';' case-list-element } [ ';' ] 'end' .
     case-index = expression .
     case-list-element = case-constant-list ':' statement .
-    case-constant = constant .
-    case-constant-list = case-constant { ',' case-constant } .
 
     repetitive-statement = repeat-statement | while-statement | for-statement.
     while-statement = 'while' Boolean-expression 'do' statement.
