@@ -50,9 +50,11 @@ Library
         Language.Pascal.Lexer
         Language.Pascal.Parser
         Language.Pascal.Pretty
+        Language.Pascal.Interpreter.Base
   
   -- Packages needed in order to build this package.
-  Build-depends: base==4.*, array==0.3.*, pretty==1.0.*
+  Build-depends: base==4.*, array==0.3.*, pretty==1.0.*,
+                 containers==0.4.*, transformers==0.2.*
   
   -- Modules not exported by this package.
   -- Other-modules:       
@@ -61,4 +63,5 @@ Library
   -- Build-tools:         
 
   Extensions: RecordWildCards, TypeSynonymInstances, FlexibleInstances
+              GADTs, GeneralizedNewtypeDeriving
   
