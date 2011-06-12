@@ -18,6 +18,7 @@ testPrograms = [ "pooltype.p"
                , "tangle.p"
                , "weave.p"
                , "dvitype.p"
+               , "bibtex.p"
                , "tex.p"
                ]
 
