@@ -14,12 +14,18 @@ testParser f prog = case runAlex prog f of
                         Left err -> print err
                         Right x -> print $ pretty x
 
+-- Unless specified otherwise, these are all tangled directly from the .web
+-- source.
 testPrograms = [ "pooltype.p"
                , "tangle.p"
                , "weave.p"
                , "dvitype.p"
+               -- bibtex has an "extern" function declaration for erstat.
+               -- I don't think that's valid Pascal, so I just changed it.
                , "bibtex.p"
                , "tex.p"
+               -- etex from tex.web and etex.ch.
+               , "etex.p"
                ]
 
 runTests :: IO ()
