@@ -163,19 +163,20 @@ readReal xs = let
     (w,_:r) = break (=='.') xs
     in fromInteger (read w) + fromInteger (read r) / (10^length r)
 
-tok :: Token -> AlexInput -> Int -> Alex Token
+tok :: Token -> AlexAction Token
 tok t _ _ = return t
 
-tok1 :: (String -> Token) -> AlexInput -> Int -> Alex Token
-tok1 f i@(_,_,s) len = return $ f (take len s)
+tok1 :: (String -> Token) -> AlexAction Token
+tok1 f i@(_,_,_,s) len = return $ f (take len s)
 
 alexEOF = return TokEOF
 
 type Pos = (Int,Int)
+
 getPosition :: Alex Pos
 getPosition = liftM inputPos alexGetInput
   where
-    inputPos (AlexPn _ l c,_,_) = (l,c)
+    inputPos (AlexPn _ l c,_,_,_) = (l,c)
 
 lexerError :: Pos -> String -> Alex a
 lexerError p s = do
