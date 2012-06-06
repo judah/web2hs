@@ -30,3 +30,9 @@ Built-in functions:
  - eoln
  - readln
 gotos (esp. at end?)
+
+------
+
+character/boolean types are handled correctly?  It's unclear when it's legal
+to convert them to/from ranged types.
+Probably for our purposes it's OK.

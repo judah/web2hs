@@ -22,7 +22,7 @@ instance Pretty Integer where
 
 myhang x = hang x 2
 
-instance Pretty Program where
+instance Pretty t => Pretty (Program t) where
     pretty Program{..} = 
         myhang (text "program" <+> pretty progName <> paramList progArgs <> semi)
         (pretty progBlock)
@@ -50,7 +50,7 @@ unlessNull [] _ = empty
 unlessNull _ d = d
 
 
-instance Pretty Block where
+instance Pretty t => Pretty (Block t) where
     pretty Block {..} = vcat
         [ unlessNull blockLabels $ text "label" <+> commaList blockLabels <> semi
         , unlessNull blockConstants $ text "const" <+> semilistOneLine (map assign blockConstants)
@@ -68,19 +68,19 @@ assignT (x,y) = pretty x <> colon <> pretty y
 compound :: StatementList -> Doc
 compound l = myhang (text "begin") (semicolonList l) $$ text "end"
 
-instance Pretty FunctionDecl where
+instance Pretty t => Pretty (FunctionDecl t) where
     pretty FuncForward {..} = funcKind funcHeading 
                                 <+> pretty funcName <+> pretty funcHeading
                                 <> semi <+> text "forward"
     pretty Func {..} = myhang (funcKind funcHeading <+> pretty funcName <+> pretty funcHeading
                                 <> semi) $ pretty funcBlock
 
-funcKind :: FuncHeading -> Doc
+funcKind :: Pretty t => FuncHeading t -> Doc
 funcKind FuncHeading {..} = case funcReturnType of
                                 Nothing -> text "procedure"
                                 Just _ -> text "function"
 
-instance Pretty FuncHeading where
+instance Pretty t => Pretty (FuncHeading t) where
     pretty FuncHeading{..} = args <+> returntype
       where
         returntype = maybe empty (\t -> char ':' <+> pretty t) funcReturnType
@@ -88,7 +88,7 @@ instance Pretty FuncHeading where
                         then empty
                         else parens $ commaList funcArgs
 
-instance Pretty FuncParam where
+instance Pretty t => Pretty (FuncParam t) where
     pretty FuncParam{..} = (if paramByRef then text "var" else empty)
                             <+> pretty paramName <> colon <> pretty paramType
 
@@ -201,7 +201,7 @@ instance Pretty Rational where
 
 ----------------
 
-instance Pretty BaseType where
+instance Pretty NamedOrdinal where
     pretty (NamedType n) = pretty n
     pretty Range {..} = pretty lowerBound <> text ".." <> pretty upperBound
 
@@ -210,8 +210,12 @@ instance Pretty Bound where
     pretty (NegBound b) = pretty b
     pretty (VarBound n) = pretty n
 
-instance Pretty Type where
+instance Pretty Ordinal where
+    pretty Ordinal {..} = pretty ordLower <> text ".." <> pretty ordUpper
+
+instance Pretty t => Pretty (Type t) where
     pretty (BaseType t) = pretty t
+    pretty RealType = text "real"
     pretty ArrayType {..} = text "array" <> brackets (commaList arrayIndexType)
                                 <+> text "of" <+> pretty arrayEltType
     pretty FileType {..} = text "file" <+> text "of" <+> pretty fileEltType
@@ -225,10 +229,10 @@ instance Pretty Type where
                                                     <> semi
                                                     $$ prettyVariant v
 
-prettyFields :: Fields -> Doc
+prettyFields :: Pretty t => Fields t -> Doc
 prettyFields = semicolonList . map assignT
 
-prettyVariant :: Variant -> Doc
+prettyVariant :: Pretty t => Variant t -> Doc
 prettyVariant Variant {..} = myhang (text "case" <+> pretty variantSelector
                                         <+> text "of")
                                 (semicolonList $ map fieldChoice variantFields)

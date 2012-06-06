@@ -3,6 +3,7 @@ module TestParser where
 import Language.Pascal.Parser
 import Language.Pascal.Lexer
 import Language.Pascal.Syntax
+import Language.Pascal.Transform
 import Language.Pascal.Pretty
 import Text.PrettyPrint.HughesPJ
 
@@ -36,8 +37,10 @@ runTests = forM_ testPrograms $ \prog -> do
         Left err -> print err
         Right s -> do
                     putStrLn "Succeeded."
-                    writeFile (replaceExtension prog "out")
+                    writeFile (replaceExtension prog "out1")
                         $ render $ pretty s
+                    writeFile (replaceExtension prog "out2")
+                        $ render $ pretty $ flattenProgram s
                     {-
                     writeFile (replaceExtension prog "diff.old")
                         $ concat $ lines old

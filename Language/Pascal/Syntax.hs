@@ -10,34 +10,34 @@ type Label = Integer
 -- Much better:
 -- http://www.freepascal.org/docs-html/ref/ref.html
 
-data Program = Program {
+data Program t = Program {
                 progName :: Name,
                 progArgs :: [Name],
-                progBlock :: Block
+                progBlock :: Block t
             }
 
-data Block = Block {
+data Block t = Block {
                 blockLabels :: [Label],
                 blockConstants :: [(Name,ConstValue)],
-                blockTypes :: [(Name,Type)],
-                blockVars :: [(Name,Type)],
-                blockFunctions :: [FunctionDecl],
+                blockTypes :: [(Name,Type t)],
+                blockVars :: [(Name,Type t)],
+                blockFunctions :: [FunctionDecl t],
                 blockStatements :: StatementList
             }
 
-data FunctionDecl = FuncForward {funcName :: Name, funcHeading :: FuncHeading}
+data FunctionDecl t = FuncForward {funcName :: Name, funcHeading :: FuncHeading t}
                  -- TODO: grammar can't tell when we're defining previously-declared
                  -- forward procedures.
                  -- | FuncIdent {funcName :: Name, funcBlock :: Block}
-                 | Func {funcName :: Name, funcHeading :: FuncHeading, 
-                         funcBlock :: Block}
+                 | Func {funcName :: Name, funcHeading :: FuncHeading t, 
+                         funcBlock :: Block t}
 
-data FuncHeading = FuncHeading {
-                    funcArgs :: [FuncParam],
-                    funcReturnType :: Maybe Type -- Nothing if it's a procedure.
+data FuncHeading t = FuncHeading {
+                    funcArgs :: [FuncParam t],
+                    funcReturnType :: Maybe (Type t) -- Nothing if it's a procedure.
                 }
                 
-data FuncParam = FuncParam {paramName :: Name, paramType :: Type, paramByRef :: Bool}
+data FuncParam t = FuncParam {paramName :: Name, paramType :: Type t, paramByRef :: Bool}
             deriving Show
 
 
@@ -122,32 +122,40 @@ data BinOp = Plus | Minus | Times | Divide | Div | Mod
                | DeclareVar Name PascalType
 -}
 
-data Type
-    = BaseType BaseType
+data Type t
+    = BaseType t
+    | RealType
     -- For now, we just ignore "packed".
-    | ArrayType { arrayIndexType :: [BaseType] , -- can be any ordinal type
-                    arrayEltType :: Type
+    | ArrayType { arrayIndexType :: [t] , -- can be any ordinal type
+                    arrayEltType :: Type t
                 }
-    | FileType { fileEltType :: Type }
-    | RecordType { recordFields :: FieldList }
+    | FileType { fileEltType :: Type t }
+    | RecordType { recordFields :: FieldList t }
         deriving Show
 
 --  NOTE: TeX only requires a subset of Pascal's record functionality.
-data FieldList = FieldList {
-                        fixedPart :: Fields,
-                        variantPart :: Maybe Variant
+data FieldList t = FieldList {
+                        fixedPart :: Fields t,
+                        variantPart :: Maybe (Variant t)
                     }
             deriving Show
 
-type Fields = [(Name,Type)]
+type Fields t = [(Name,Type t)]
 
-data Variant = Variant {
-                variantSelector :: Type,
-                variantFields :: [(Integer,Fields)]
+data Variant t = Variant {
+                variantSelector :: Type t,
+                variantFields :: [(Integer,Fields t)]
                 }
         deriving Show
 
-data BaseType
+
+
+
+data Ordinal = Ordinal { ordLower, ordUpper :: Integer}
+
+type NamedType = Type NamedOrdinal
+
+data NamedOrdinal
     = NamedType Name
     -- prim: integer, char, real,
     | Range {lowerBound, upperBound :: Bound} -- may refer to a constant

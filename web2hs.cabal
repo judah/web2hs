@@ -49,6 +49,7 @@ Library
         Language.Pascal.Syntax
         Language.Pascal.Lexer
         Language.Pascal.Parser
+        Language.Pascal.Transform
         Language.Pascal.Pretty
         Language.Pascal.Interpreter.Base
         Language.Pascal.Interpreter.Builtins

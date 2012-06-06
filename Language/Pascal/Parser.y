@@ -89,7 +89,7 @@ import Language.Pascal.Syntax
     
 %%
 
-pascalProgram :: { Program }
+pascalProgram :: { Program NamedOrdinal }
     : program ident progParams ';' block '.'
         { Program $2 $3 $5 }
 
@@ -98,7 +98,7 @@ progParams
     | {- empty -}           { [] }
 
 
-block :: { Block }
+block :: { Block NamedOrdinal }
     : blockLabels blockConstants blockTypes blockVars blockFuncs
       compoundStatement
     { Block $1 $2 $3 $4 $5 $6 }
@@ -113,23 +113,23 @@ blockConstants :: { [(Name,ConstValue)] }
 constAssign :: { (Name,ConstValue) }
     : ident '=' constValue { ($1,$3) }
 
-blockTypes :: { [(Name,Type)] }
+blockTypes :: { [(Name,NamedType)] }
     : type semilist(typeDeclar) { $2 }
     | {- empty -}           { [] }
-typeDeclar :: { (Name,Type) }
+typeDeclar :: { (Name,NamedType) }
     : ident '=' typeDescr   { ($1,$3) }
 
-blockVars :: { [(Name,Type)] }
+blockVars :: { [(Name,NamedType)] }
     : var semilist(varDecls)   { [(n,t) | (ns,t) <- $2, n <- ns] }
     | {- empty -}           { [] }
-varDecls :: { ([Name],Type) }
+varDecls :: { ([Name],NamedType) }
     : commalistNonempty(ident) ':' typeDescr { ($1,$3) }
 
-blockFuncs :: {[FunctionDecl]}
+blockFuncs :: {[FunctionDecl NamedOrdinal]}
     : semilist(functionDecl)    { $1 }
     | {- empty -}           { [] }
 
-functionDecl :: { FunctionDecl }
+functionDecl :: { FunctionDecl NamedOrdinal}
     : procedure ident paramList ';' forward
         { FuncForward $2 (FuncHeading $3 Nothing) }
     | procedure ident paramList ';' block
@@ -140,15 +140,15 @@ functionDecl :: { FunctionDecl }
         { Func $2 (FuncHeading $3 (Just $5)) $7 }
 
 
-paramList :: { [FuncParam] }
+paramList :: { [FuncParam NamedOrdinal] }
     : {- empty -}   { [] }
     | '(' funcParams ')'     { concat (reverse $2) }
 
-funcParams :: { [[FuncParam]] }
+funcParams :: { [[FuncParam NamedOrdinal]] }
     : funcParam { [$1] }
     | funcParams ';' funcParam  { $3 : $1 }
 
-funcParam :: { [FuncParam] }
+funcParam :: { [FuncParam NamedOrdinal] }
     : maybevar commalistNonempty(ident) ':' typeDescr
         { [FuncParam n t r | let r = $1, let t = $4, 
                                 n <- $2] }
@@ -243,7 +243,7 @@ nonnegConstValue
 
 -- types
 
-typeDescr :: { Type }
+typeDescr :: { NamedType }
     : baseType { BaseType $1 }
     | maybepacked array '[' commalistNonempty(baseType) ']' of typeDescr
                         { ArrayType $4 $7 }
@@ -252,7 +252,7 @@ typeDescr :: { Type }
     | maybepacked record fieldList end { RecordType $3 }
 
 
-baseType :: { BaseType }
+baseType :: { NamedOrdinal }
     : ident { NamedType $1 }
     | bound '.' '.' bound   { Range $1 $4 } 
 
@@ -266,30 +266,30 @@ bound :: { Bound }
     | '+' bound { $2 }
     | '-' bound { NegBound $2 }
 
-fieldList :: { FieldList }
+fieldList :: { FieldList NamedOrdinal }
     : fixedFields { FieldList $1 Nothing }
     | fixedFields  variantFields
                         { FieldList $1 (Just $2) }
     | variantFields
                         { FieldList [] (Just $1) }
 
-fixedFields :: { Fields }
+fixedFields :: { Fields NamedOrdinal }
     : fixedFieldsHelper { concat $ reverse $1 }
     | fixedFieldsHelper ';' { concat $ reverse $1 }
 
-fixedFieldsHelper :: { [Fields] }
+fixedFieldsHelper :: { [Fields NamedOrdinal ] }
     : recordSelection { [$1] }
     | fixedFieldsHelper ';' recordSelection { $3 : $1 }
 
-recordSelection :: { Fields }
+recordSelection :: { Fields NamedOrdinal }
     : commalistNonempty(ident) ':' typeDescr
-        { [(n::Name,t::Type) | let ns = $1, let t = $3, n <- ns] }
+        { [(n::Name,t::NamedType) | let ns = $1, let t = $3, n <- ns] }
 
-variantFields :: { Variant }
+variantFields :: { Variant NamedOrdinal }
     : case typeDescr of semilist(variant)
         { Variant $2 $4 }
 
-variant :: { (Integer,Fields) }
+variant :: { (Integer,Fields NamedOrdinal) }
     : nonnegint ':' '(' fixedFields')' { ($1,$4) }
 
 
