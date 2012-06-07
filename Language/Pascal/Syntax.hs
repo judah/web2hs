@@ -10,97 +10,100 @@ type Label = Integer
 -- Much better:
 -- http://www.freepascal.org/docs-html/ref/ref.html
 
-data Program t = Program {
+data Program v t = Program {
                 progName :: Name,
                 progArgs :: [Name],
-                progBlock :: Block t
-            }
+                progBlock :: Block v t
+            } deriving Show
 
-data Block t = Block {
+data Block v t = Block {
                 blockLabels :: [Label],
-                blockConstants :: [(Name,ConstValue)],
+                -- TODO: remember var/const uniques here
+                blockConstants :: [(v,ConstValue)],
                 blockTypes :: [(Name,Type t)],
-                blockVars :: [(Name,Type t)],
-                blockFunctions :: [FunctionDecl t],
-                blockStatements :: StatementList
-            }
+                blockVars :: [(v,Type t)],
+                blockFunctions :: [FunctionDecl v t],
+                blockStatements :: StatementList v
+            } deriving Show
 
-data FunctionDecl t = FuncForward {funcName :: Name, funcHeading :: FuncHeading t}
+-- TODO: Resolve function names also
+data FunctionDecl v t = FuncForward {funcName :: Name, funcHeading :: FuncHeading v t}
                  -- TODO: grammar can't tell when we're defining previously-declared
                  -- forward procedures.
                  -- | FuncIdent {funcName :: Name, funcBlock :: Block}
-                 | Func {funcName :: Name, funcHeading :: FuncHeading t, 
-                         funcBlock :: Block t}
+                 | Func {funcName :: Name, funcHeading :: FuncHeading v t, 
+                         funcBlock :: Block v t}
+            deriving Show
 
-data FuncHeading t = FuncHeading {
-                    funcArgs :: [FuncParam t],
+data FuncHeading v t = FuncHeading {
+                    funcArgs :: [FuncParam v t],
                     funcReturnType :: Maybe (Type t) -- Nothing if it's a procedure.
-                }
+                } deriving Show
                 
-data FuncParam t = FuncParam {paramName :: Name, paramType :: Type t, paramByRef :: Bool}
+data FuncParam v t = FuncParam {paramName :: v, paramType :: Type t, paramByRef :: Bool}
             deriving Show
 
 
 --------------------------------------------
 
-type StatementList = [Statement]
+type StatementList v = [Statement v]
 
-type Statement = (Maybe Label,StatementBase)
+type Statement v = (Maybe Label,StatementBase v)
 
-data StatementBase =
-               AssignStmt {assignTarget :: VarReference, assignExpr :: Expr}
-               | ProcedureCall {funName :: Name, procArgs :: [Expr]}
-               | IfStmt { ifCond :: Expr, thenStmt :: Statement,
-                            elseStmt :: Maybe Statement}
-               | ForStmt { loopVar :: Name, forStart, forEnd :: Expr,
+data StatementBase v =
+               AssignStmt {assignTarget :: VarReference v, assignExpr :: Expr v}
+               | ProcedureCall {funName :: Name, procArgs :: [Expr v]}
+               | IfStmt { ifCond :: Expr v, thenStmt :: Statement v,
+                            elseStmt :: Maybe (Statement v)}
+               | ForStmt { loopVar :: v, forStart, forEnd :: Expr v,
                         forDirection :: ForDir,
-                        forBody :: Statement}
-               | WhileStmt { loopExpr :: Expr, loopStmt :: Statement}
-               | RepeatStmt { loopExpr :: Expr, loopBody :: StatementList }
-               | CaseStmt { caseExpr :: Expr, caseList :: [CaseElt] }
+                        forBody :: (Statement v)}
+               | WhileStmt { loopExpr :: Expr v, loopStmt :: (Statement v)}
+               | RepeatStmt { loopExpr :: Expr v, loopBody :: StatementList v }
+               | CaseStmt { caseExpr :: Expr v, caseList :: [CaseElt v] }
                | Goto Label
                | MarkLabel Label
                | Write {addNewline :: Bool,
-                        writeArgs :: [WriteArg]
+                        writeArgs :: [WriteArg v]
                         }
-               | CompoundStmt StatementList
+               | CompoundStmt (StatementList v)
                | EmptyStatement
         deriving Show
 
 -- Unsure about these...
-data VarReference = NameRef Name
-                  | ArrayRef VarReference [Expr]
-                  | DeRef VarReference -- pointer dereference; also for files
-                  | RecordRef VarReference Name
+data VarReference v = NameRef v
+                  | ArrayRef (VarReference v) [Expr v]
+                  | DeRef (VarReference v) -- pointer dereference; also for files
+                  | RecordRef (VarReference v) Name
                 deriving Show
 
 data ForDir = UpTo | DownTo
         deriving Show
 
-data CaseElt = CaseElt {
+data CaseElt v = CaseElt {
                -- TODO: In Pascal, cases can be any constant identifier
                 caseConstants :: [Maybe ConstValue], -- nothing if "others:"
-                caseStmt :: Statement
+                caseStmt :: Statement v
                 }
     deriving Show
 
-data WriteArg = WriteArg {
-                    writeExpr :: Expr,
+data WriteArg v = WriteArg {
+                    writeExpr :: Expr v,
                     widthAndDigits :: Maybe (Integer, Maybe Integer)
                 }
     deriving Show
 
 -- <statement> | BEGIN <statement-list> END
-type Body = [Statement]
+type Body v = [Statement v]
 
-data Expr 
+data Expr v
           = ConstExpr ConstValue
-          | VarExpr VarReference
-          | FuncCall Name [Expr]
-          | BinOp Expr BinOp Expr
-          | NotOp Expr
-          | Negate Expr
-          | ArrayAccess Name [Expr]
+          | VarExpr (VarReference v)
+          | FuncCall Name [Expr v]
+          | BinOp (Expr v) BinOp (Expr v)
+          | NotOp (Expr v)
+          | Negate (Expr v)
+          -- not necessary? | ArrayAccess Name [Expr]
     deriving Show
             -- records?
 
@@ -152,8 +155,11 @@ data Variant t = Variant {
 
 
 data Ordinal = Ordinal { ordLower, ordUpper :: Integer}
+                    deriving Show
 
 type NamedType = Type NamedOrdinal
+
+type OrdType = Type Ordinal
 
 data NamedOrdinal
     = NamedType Name
@@ -166,3 +172,28 @@ data Bound = IntBound Integer
            | NegBound Bound
            | VarBound Name
     deriving Show
+
+------------------------------------
+
+data Var = Var
+            { varName :: Name
+            , varUnique :: Integer
+            , varType :: Type Ordinal
+            --,  varScope :: Scope
+            }
+            | Const
+                { varName :: Name
+                , varUnique :: Integer
+                , varValue :: ConstValue
+                }
+            | FuncReturn 
+                { varName :: Name
+                , varUnique :: Integer
+                , varType :: Type Ordinal
+                }
+    deriving Show
+
+
+data Scope = Local | Global
+            deriving Show
+

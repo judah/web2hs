@@ -89,7 +89,7 @@ import Language.Pascal.Syntax
     
 %%
 
-pascalProgram :: { Program NamedOrdinal }
+pascalProgram :: { Program Name NamedOrdinal }
     : program ident progParams ';' block '.'
         { Program $2 $3 $5 }
 
@@ -98,7 +98,7 @@ progParams
     | {- empty -}           { [] }
 
 
-block :: { Block NamedOrdinal }
+block :: { Block Name NamedOrdinal }
     : blockLabels blockConstants blockTypes blockVars blockFuncs
       compoundStatement
     { Block $1 $2 $3 $4 $5 $6 }
@@ -125,11 +125,11 @@ blockVars :: { [(Name,NamedType)] }
 varDecls :: { ([Name],NamedType) }
     : commalistNonempty(ident) ':' typeDescr { ($1,$3) }
 
-blockFuncs :: {[FunctionDecl NamedOrdinal]}
+blockFuncs :: {[FunctionDecl Name NamedOrdinal]}
     : semilist(functionDecl)    { $1 }
     | {- empty -}           { [] }
 
-functionDecl :: { FunctionDecl NamedOrdinal}
+functionDecl :: { FunctionDecl Name NamedOrdinal}
     : procedure ident paramList ';' forward
         { FuncForward $2 (FuncHeading $3 Nothing) }
     | procedure ident paramList ';' block
@@ -140,15 +140,15 @@ functionDecl :: { FunctionDecl NamedOrdinal}
         { Func $2 (FuncHeading $3 (Just $5)) $7 }
 
 
-paramList :: { [FuncParam NamedOrdinal] }
+paramList :: { [FuncParam Name NamedOrdinal] }
     : {- empty -}   { [] }
     | '(' funcParams ')'     { concat (reverse $2) }
 
-funcParams :: { [[FuncParam NamedOrdinal]] }
+funcParams :: { [[FuncParam Name NamedOrdinal]] }
     : funcParam { [$1] }
     | funcParams ';' funcParam  { $3 : $1 }
 
-funcParam :: { [FuncParam NamedOrdinal] }
+funcParam :: { [FuncParam Name NamedOrdinal] }
     : maybevar commalistNonempty(ident) ':' typeDescr
         { [FuncParam n t r | let r = $1, let t = $4, 
                                 n <- $2] }
@@ -159,22 +159,22 @@ maybevar :: { Bool }
 
 
 
-compoundStatement :: { StatementList }
+compoundStatement :: { StatementList Name }
     -- note: I think the trailing semicolon on the last substatement
     -- is optional in Pascal, but tangle seems to always generate it.
     : begin statementList end { $2 }
 
-statementList :: { StatementList }
+statementList :: { StatementList Name }
     : statementListHelper { reverse $1 }
-statementListHelper :: { StatementList }
+statementListHelper :: { StatementList Name }
     : statement { [$1] }
     | statementListHelper ';' statement { $3 : $1 }
 
-statement :: { Statement }
+statement :: { Statement Name }
     : statementBase { (Nothing,$1) }
     | labelName ':' statementBase { (Just $1,$3) }
 
-statementBase :: { StatementBase }
+statementBase :: { StatementBase Name }
     : varRef ":=" expr { AssignStmt $1 $3 }
     | goto labelName { Goto $2 }
     | ident { ProcedureCall $1 [] }
@@ -192,7 +192,7 @@ statementBase :: { StatementBase }
     | compoundStatement     { CompoundStmt $1 }
     | {- empty -}           { EmptyStatement }
 
-varRef :: { VarReference }
+varRef :: { VarReference Name }
     : ident { NameRef $1 }
     | varRef'[' commalistNonempty(expr) ']' { ArrayRef $1 $3 }
     | varRef '^' { DeRef $1 }
@@ -205,21 +205,21 @@ forDir :: { ForDir }
     : to    { UpTo }
     | downto { DownTo }
 
-writeArg :: { WriteArg }
+writeArg :: { WriteArg Name }
     : expr          { WriteArg $1 Nothing }
     | expr ':' nonnegint  { WriteArg $1 (Just ($3,Nothing)) }
     | expr ':' nonnegint  ':' nonnegint
                     { WriteArg $1 (Just ($3,Just $5)) }
 
-caseEltList :: { [CaseElt] }
+caseEltList :: { [CaseElt Name] }
     : caseEltListHelper end    { reverse $1 }
     | caseEltListHelper caseElt end { reverse ($2 : $1) }
 
-caseEltListHelper :: { [CaseElt] }
+caseEltListHelper :: { [CaseElt Name] }
     : caseElt ';'      { [$1] }
     | caseEltListHelper caseElt ';' { $2 : $1 }
 
-caseElt :: { CaseElt }
+caseElt :: { CaseElt Name }
     : commalistNonempty(constValueOrOthers) ':' statement
             { CaseElt $1 $3 }
 
@@ -296,7 +296,7 @@ variant :: { (Integer,Fields NamedOrdinal) }
 ----------
 -- Expressions
 
-expr :: { Expr }
+expr :: { Expr Name }
     : expr '+' expr { BinOp $1 Plus $3 }
     | expr '-' expr { BinOp $1 Minus $3 }
     | expr '*' expr { BinOp $1 Times $3 }

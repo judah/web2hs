@@ -36,11 +36,17 @@ runTests = forM_ testPrograms $ \prog -> do
     case runAlex old program of
         Left err -> print err
         Right s -> do
-                    putStrLn "Succeeded."
-                    writeFile (replaceExtension prog "out1")
+                    writeFile (replaceExtension prog "out")
                         $ render $ pretty s
-                    writeFile (replaceExtension prog "out2")
-                        $ render $ pretty $ flattenProgram s
+                    putStrLn "Succeeded parsing."
+                    let flat = flattenProgram s
+                    writeFile (replaceExtension prog "out.flat")
+                        $ render $ pretty flat
+                    putStrLn "Succeeded flattening."
+                    let resolved = resolveProgram flat
+                    writeFile (replaceExtension prog "out.resolved")
+                        $ render $ pretty resolved
+                    putStrLn "Succeeded rendering."
                     {-
                     writeFile (replaceExtension prog "diff.old")
                         $ concat $ lines old
