@@ -129,18 +129,18 @@ resolveProgram :: Program Name Ordinal -> Program Var Ordinal
 resolveProgram p@Program {..} = Program {
                                     progBlock = flip evalState 0
                                                 $ flip runReaderT Map.empty
-                                                $ withPrimConsts $ resolveBlock progBlock
+                                                $ withPrimConsts $ resolveBlock Global progBlock
                                     ,..
                                 }
 
 withPrimConsts = withConstVar "true" (ConstInt 1)
                 . withConstVar "false" (ConstInt 0)
-                . withBlockVar "tty" (FileType (BaseType (Ordinal 0 255)))
+                . withBlockVar Global "tty" (FileType (BaseType (Ordinal 0 255)))
 
 type VarM = ReaderT (Map Name Var) (State Integer)
 
-resolveBlock :: Block Name Ordinal -> VarM (Block Var Ordinal)
-resolveBlock b@Block {..} = withs (uncurry withBlockVar) blockVars 
+resolveBlock :: Scope -> Block Name Ordinal -> VarM (Block Var Ordinal)
+resolveBlock s b@Block {..} = withs (uncurry $ withBlockVar s) blockVars 
                         $ withs (uncurry withConstVar) blockConstants $ do
         blockFunctions <- mapM resolveFunction blockFunctions
         blockStatements <- mapM resolveStatement blockStatements
@@ -148,10 +148,10 @@ resolveBlock b@Block {..} = withs (uncurry withBlockVar) blockVars
         blockVars <- mapM (firstM resolveVar) blockVars
         return Block {..}
 
-withBlockVar :: Name -> Type Ordinal -> VarM a -> VarM a
-withBlockVar n t act = do
+withBlockVar :: Scope -> Name -> Type Ordinal -> VarM a -> VarM a
+withBlockVar s n t act = do
     u <- nextUnique
-    local (Map.insert n (Var n u t)) act
+    local (Map.insert n (Var n u t s)) act
 
 withConstVar :: Name -> ConstValue -> VarM a -> VarM a
 withConstVar n c act = do
@@ -174,13 +174,13 @@ resolveFunction FuncForward {..} = withHeading funcName funcHeading $ do
     return FuncForward {..}
 resolveFunction Func {..} = withHeading funcName funcHeading $ do
     funcHeading <- resolveHeading funcHeading
-    funcBlock <- resolveBlock funcBlock
+    funcBlock <- resolveBlock Local funcBlock
     return Func {..}
 
 withHeading :: Name -> FuncHeading Name Ordinal -> VarM a -> VarM a
 withHeading funcName FuncHeading {..} = let
     params = [(paramName,paramType) | FuncParam{..} <- funcArgs]
-    in withs (uncurry withBlockVar) params
+    in withs (uncurry $ withBlockVar Local) params
         . case funcReturnType of
             Nothing -> id
             Just t -> \act -> do

@@ -244,3 +244,9 @@ prettyVariant Variant {..} = myhang (text "case" <+> pretty variantSelector
 
 instance Pretty Var where
     pretty v = text (varName v) <> text "_" <> pretty (varUnique v)
+                <> case v of
+                    Var {varScope=Global} -> text "g"
+                    Var {varScope=Local} -> text "l"
+                    Const {} -> text "c"
+                    FuncReturn {} -> text "r"
+                    

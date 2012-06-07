@@ -179,7 +179,7 @@ data Var = Var
             { varName :: Name
             , varUnique :: Integer
             , varType :: Type Ordinal
-            --,  varScope :: Scope
+            , varScope :: Scope
             }
             | Const
                 { varName :: Name
@@ -192,7 +192,6 @@ data Var = Var
                 , varType :: Type Ordinal
                 }
     deriving Show
-
 
 data Scope = Local | Global
             deriving Show
