@@ -65,5 +65,7 @@ Library
   Build-tools: alex>=3.0.2
 
   Extensions: RecordWildCards, TypeSynonymInstances, FlexibleInstances
-              GADTs, GeneralizedNewtypeDeriving
+              GADTs, GeneralizedNewtypeDeriving, TypeFamilies
+              EmptyDataDecls, FlexibleContexts, UndecidableInstances
+              StandaloneDeriving, PatternGuards
   

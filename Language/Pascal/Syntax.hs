@@ -14,34 +14,33 @@ data Program v t = Program {
                 progName :: Name,
                 progArgs :: [Name],
                 progBlock :: Block v t
-            } deriving Show
+            }
 
 data Block v t = Block {
                 blockLabels :: [Label],
                 -- TODO: remember var/const uniques here
-                blockConstants :: [(v,ConstValue)],
+                blockConstants :: [(VarID v,ConstValue)],
                 blockTypes :: [(Name,Type t)],
-                blockVars :: [(v,Type t)],
+                blockVars :: [(VarID v,Type t)],
                 blockFunctions :: [FunctionDecl v t],
                 blockStatements :: StatementList v
-            } deriving Show
+            }
 
--- TODO: Resolve function names also
-data FunctionDecl v t = FuncForward {funcName :: Name, funcHeading :: FuncHeading v t}
+data FunctionDecl v t = FuncForward {funcName :: FuncID v, funcHeading :: FuncHeading v t}
                  -- TODO: grammar can't tell when we're defining previously-declared
                  -- forward procedures.
                  -- | FuncIdent {funcName :: Name, funcBlock :: Block}
-                 | Func {funcName :: Name, funcHeading :: FuncHeading v t, 
+                 | FuncDecl {funcName :: FuncID v, funcHeading :: FuncHeading v t, 
                          funcBlock :: Block v t}
-            deriving Show
 
 data FuncHeading v t = FuncHeading {
                     funcArgs :: [FuncParam v t],
                     funcReturnType :: Maybe (Type t) -- Nothing if it's a procedure.
-                } deriving Show
+                }
+
                 
-data FuncParam v t = FuncParam {paramName :: v, paramType :: Type t, paramByRef :: Bool}
-            deriving Show
+data FuncParam v t = FuncParam {paramName :: VarID v, paramType :: Type t,
+                            paramByRef :: Bool}
 
 
 --------------------------------------------
@@ -52,10 +51,10 @@ type Statement v = (Maybe Label,StatementBase v)
 
 data StatementBase v =
                AssignStmt {assignTarget :: VarReference v, assignExpr :: Expr v}
-               | ProcedureCall {funName :: Name, procArgs :: [Expr v]}
+               | ProcedureCall {funName :: FuncCallID v, procArgs :: [Expr v]}
                | IfStmt { ifCond :: Expr v, thenStmt :: Statement v,
                             elseStmt :: Maybe (Statement v)}
-               | ForStmt { loopVar :: v, forStart, forEnd :: Expr v,
+               | ForStmt { loopVar :: VarID v, forStart, forEnd :: Expr v,
                         forDirection :: ForDir,
                         forBody :: (Statement v)}
                | WhileStmt { loopExpr :: Expr v, loopStmt :: (Statement v)}
@@ -68,30 +67,25 @@ data StatementBase v =
                         }
                | CompoundStmt (StatementList v)
                | EmptyStatement
-        deriving Show
 
 -- Unsure about these...
-data VarReference v = NameRef v
+data VarReference v = NameRef (VarID v)
                   | ArrayRef (VarReference v) [Expr v]
                   | DeRef (VarReference v) -- pointer dereference; also for files
                   | RecordRef (VarReference v) Name
-                deriving Show
 
 data ForDir = UpTo | DownTo
-        deriving Show
 
 data CaseElt v = CaseElt {
                -- TODO: In Pascal, cases can be any constant identifier
                 caseConstants :: [Maybe ConstValue], -- nothing if "others:"
                 caseStmt :: Statement v
                 }
-    deriving Show
 
 data WriteArg v = WriteArg {
                     writeExpr :: Expr v,
                     widthAndDigits :: Maybe (Integer, Maybe Integer)
                 }
-    deriving Show
 
 -- <statement> | BEGIN <statement-list> END
 type Body v = [Statement v]
@@ -99,31 +93,22 @@ type Body v = [Statement v]
 data Expr v
           = ConstExpr ConstValue
           | VarExpr (VarReference v)
-          | FuncCall Name [Expr v]
+          | FuncCall (FuncCallID v) [Expr v]
           | BinOp (Expr v) BinOp (Expr v)
           | NotOp (Expr v)
           | Negate (Expr v)
           -- not necessary? | ArrayAccess Name [Expr]
-    deriving Show
             -- records?
 
 
 data ConstValue = ConstInt Integer
                 | ConstReal Rational
                 | ConstString String
-        deriving Show
 
 data BinOp = Plus | Minus | Times | Divide | Div | Mod
             | Or | And
             | OpEQ | NEQ | OpLT | LTEQ | OpGT | GTEQ
-    deriving Show
                              
-            {-
-                DefineProcedure Procedure
-               | DefineFunction Function
-               | DeclareType NewType
-               | DeclareVar Name PascalType
--}
 
 data Type t
     = BaseType t
@@ -140,16 +125,14 @@ data Type t
 data FieldList t = FieldList {
                         fixedPart :: Fields t,
                         variantPart :: Maybe (Variant t)
-                    }
-            deriving Show
+                    } deriving Show
 
 type Fields t = [(Name,Type t)]
 
 data Variant t = Variant {
                 variantSelector :: Type t,
                 variantFields :: [(Integer,Fields t)]
-                }
-        deriving Show
+                } deriving Show
 
 
 
@@ -175,6 +158,33 @@ data Bound = IntBound Integer
 
 ------------------------------------
 
+-- Functions: 
+-- FuncCall calls either a builtin of a particular name
+-- or a predefined function.
+
+data Scoped
+data Unscoped
+
+type family VarID v :: *
+type family FuncID v :: *
+type family FuncCallID v :: *
+
+type instance VarID Unscoped = Name
+type instance FuncID Unscoped = Name
+type instance FuncCallID Unscoped = Name
+
+type instance VarID Scoped = Var
+type instance FuncID Scoped = Func
+type instance FuncCallID Scoped = FuncCall
+
+data FuncCall = DefinedFunc Func | BuiltinFunc Name
+
+data Func = Func
+            { funcVarName :: Name
+            , funcUnique :: Integer
+            , funcVarHeading :: FuncHeading Scoped Ordinal
+            }
+
 data Var = Var
             { varName :: Name
             , varUnique :: Integer
@@ -186,12 +196,10 @@ data Var = Var
                 , varUnique :: Integer
                 , varValue :: ConstValue
                 }
-            | FuncReturn 
-                { varName :: Name
-                , varUnique :: Integer
-                , varType :: Type Ordinal
+            | FuncReturn
+                { varFuncReturnId :: Func
+                , varFuncReturnType :: Type Ordinal
                 }
-    deriving Show
 
 data Scope = Local | Global
             deriving Show

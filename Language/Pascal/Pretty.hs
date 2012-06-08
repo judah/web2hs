@@ -22,7 +22,11 @@ instance Pretty Integer where
 
 myhang x = hang x 2
 
-instance (Pretty v, Pretty t) => Pretty (Program v t) where
+class (Pretty (VarID s), Pretty (FuncID s), Pretty (FuncCallID s)) => PrettyID s
+
+instance (Pretty (VarID s), Pretty (FuncID s), Pretty (FuncCallID s)) => PrettyID s
+
+instance (PrettyID v, Pretty t) => Pretty (Program v t) where
     pretty Program{..} = 
         myhang (text "program" <+> pretty progName <> paramList progArgs <> semi)
         (pretty progBlock)
@@ -50,7 +54,7 @@ unlessNull [] _ = empty
 unlessNull _ d = d
 
 
-instance (Pretty v, Pretty t) => Pretty (Block v t) where
+instance (PrettyID v, Pretty t) => Pretty (Block v t) where
     pretty Block {..} = vcat
         [ unlessNull blockLabels $ text "label" <+> commaList blockLabels <> semi
         , unlessNull blockConstants $ text "const" <+> semilistOneLine (map assign blockConstants)
@@ -65,14 +69,14 @@ assign (x,y) = pretty x <> equals <> pretty y
 assignT (x,y) = pretty x <> colon <> pretty y
 
 
-compound :: Pretty v => StatementList v -> Doc
+compound :: PrettyID v => StatementList v -> Doc
 compound l = myhang (text "begin") (semicolonList l) $$ text "end"
 
-instance (Pretty v, Pretty t) => Pretty (FunctionDecl v t) where
+instance (PrettyID v, Pretty t) => Pretty (FunctionDecl v t) where
     pretty FuncForward {..} = funcKind funcHeading 
                                 <+> pretty funcName <+> pretty funcHeading
                                 <> semi <+> text "forward"
-    pretty Func {..} = myhang (funcKind funcHeading <+> pretty funcName <+> pretty funcHeading
+    pretty FuncDecl {..} = myhang (funcKind funcHeading <+> pretty funcName <+> pretty funcHeading
                                 <> semi) $ pretty funcBlock
 
 funcKind :: Pretty t => FuncHeading v t -> Doc
@@ -80,7 +84,7 @@ funcKind FuncHeading {..} = case funcReturnType of
                                 Nothing -> text "procedure"
                                 Just _ -> text "function"
 
-instance (Pretty v, Pretty t) => Pretty (FuncHeading v t) where
+instance (PrettyID v, Pretty t) => Pretty (FuncHeading v t) where
     pretty FuncHeading{..} = args <+> returntype
       where
         returntype = maybe empty (\t -> char ':' <+> pretty t) funcReturnType
@@ -88,15 +92,15 @@ instance (Pretty v, Pretty t) => Pretty (FuncHeading v t) where
                         then empty
                         else parens $ commaList funcArgs
 
-instance (Pretty v, Pretty t) => Pretty (FuncParam v t) where
+instance (PrettyID v, Pretty t) => Pretty (FuncParam v t) where
     pretty FuncParam{..} = (if paramByRef then text "var" else empty)
                             <+> pretty paramName <> colon <> pretty paramType
 
-instance Pretty v => Pretty (Statement v) where
+instance PrettyID v => Pretty (Statement v) where
     pretty (Nothing,s) = pretty s
     pretty (Just l, s) = pretty l <> colon <+> pretty s
 
-instance Pretty v => Pretty (StatementBase v) where
+instance PrettyID v => Pretty (StatementBase v) where
     pretty AssignStmt {..} = pretty assignTarget <+> text ":=" <+> pretty assignExpr
     pretty ProcedureCall {..} = pretty funName <> parens (commaList procArgs)
     pretty ForStmt {..} = myhang
@@ -130,7 +134,7 @@ instance Pretty v => Pretty (StatementBase v) where
                          <> parens (commaList writeArgs)
     pretty EmptyStatement = empty
 
-instance Pretty v => Pretty (WriteArg v) where
+instance PrettyID v => Pretty (WriteArg v) where
     pretty WriteArg {..} = pretty writeExpr
                             <> case widthAndDigits of
                                 Nothing -> empty
@@ -144,13 +148,13 @@ instance Pretty ForDir where
     pretty UpTo = text "to"
     pretty DownTo = text "downto"
 
-instance Pretty v => Pretty (VarReference v) where
+instance PrettyID v => Pretty (VarReference v) where
     pretty (NameRef n) = pretty n
     pretty (ArrayRef n e) = pretty n <> lbrack <> commaList e <> rbrack
     pretty (DeRef n) = pretty n <> char '^'
     pretty (RecordRef n f) = pretty n <> char '.' <> pretty f
 
-instance Pretty v => Pretty (CaseElt v) where
+instance PrettyID v => Pretty (CaseElt v) where
     pretty CaseElt {..} = commaList (map caseConst caseConstants) <+> colon
                             <+> pretty caseStmt
         where
@@ -158,7 +162,7 @@ instance Pretty v => Pretty (CaseElt v) where
             caseConst (Just e) = pretty e
 
 
-instance Pretty v => Pretty (Expr v) where
+instance PrettyID v => Pretty (Expr v) where
     pretty (ConstExpr c) = pretty c
     pretty (VarExpr v) = pretty v
     pretty (FuncCall n as) = pretty n <> 
@@ -243,6 +247,7 @@ prettyVariant Variant {..} = myhang (text "case" <+> pretty variantSelector
 ---------------
 
 instance Pretty Var where
+    pretty FuncReturn {..} = pretty varFuncReturnId
     pretty v = text (varName v) <> text "_" <> pretty (varUnique v)
                 <> case v of
                     Var {varScope=Global} -> text "g"
@@ -250,3 +255,9 @@ instance Pretty Var where
                     Const {} -> text "c"
                     FuncReturn {} -> text "r"
                     
+instance Pretty Func where
+    pretty Func {..} = pretty funcVarName <> text "_" <> pretty funcUnique
+
+instance Pretty FuncCall where
+    pretty (DefinedFunc f) = pretty  f
+    pretty (BuiltinFunc f) = pretty f

@@ -89,7 +89,7 @@ import Language.Pascal.Syntax
     
 %%
 
-pascalProgram :: { Program Name NamedOrdinal }
+pascalProgram :: { Program Unscoped NamedOrdinal }
     : program ident progParams ';' block '.'
         { Program $2 $3 $5 }
 
@@ -98,7 +98,7 @@ progParams
     | {- empty -}           { [] }
 
 
-block :: { Block Name NamedOrdinal }
+block :: { Block Unscoped NamedOrdinal }
     : blockLabels blockConstants blockTypes blockVars blockFuncs
       compoundStatement
     { Block $1 $2 $3 $4 $5 $6 }
@@ -125,30 +125,30 @@ blockVars :: { [(Name,NamedType)] }
 varDecls :: { ([Name],NamedType) }
     : commalistNonempty(ident) ':' typeDescr { ($1,$3) }
 
-blockFuncs :: {[FunctionDecl Name NamedOrdinal]}
+blockFuncs :: {[FunctionDecl Unscoped NamedOrdinal]}
     : semilist(functionDecl)    { $1 }
     | {- empty -}           { [] }
 
-functionDecl :: { FunctionDecl Name NamedOrdinal}
+functionDecl :: { FunctionDecl Unscoped NamedOrdinal}
     : procedure ident paramList ';' forward
         { FuncForward $2 (FuncHeading $3 Nothing) }
     | procedure ident paramList ';' block
-        { Func $2 (FuncHeading $3 Nothing) $5 }
+        { FuncDecl $2 (FuncHeading $3 Nothing) $5 }
     | function ident paramList ':' typeDescr ';' forward
         { FuncForward $2 (FuncHeading $3 (Just $5)) }
     | function ident paramList ':' typeDescr ';' block
-        { Func $2 (FuncHeading $3 (Just $5)) $7 }
+        { FuncDecl $2 (FuncHeading $3 (Just $5)) $7 }
 
 
-paramList :: { [FuncParam Name NamedOrdinal] }
+paramList :: { [FuncParam Unscoped NamedOrdinal] }
     : {- empty -}   { [] }
     | '(' funcParams ')'     { concat (reverse $2) }
 
-funcParams :: { [[FuncParam Name NamedOrdinal]] }
+funcParams :: { [[FuncParam Unscoped NamedOrdinal]] }
     : funcParam { [$1] }
     | funcParams ';' funcParam  { $3 : $1 }
 
-funcParam :: { [FuncParam Name NamedOrdinal] }
+funcParam :: { [FuncParam Unscoped NamedOrdinal] }
     : maybevar commalistNonempty(ident) ':' typeDescr
         { [FuncParam n t r | let r = $1, let t = $4, 
                                 n <- $2] }
@@ -159,22 +159,22 @@ maybevar :: { Bool }
 
 
 
-compoundStatement :: { StatementList Name }
+compoundStatement :: { StatementList Unscoped }
     -- note: I think the trailing semicolon on the last substatement
     -- is optional in Pascal, but tangle seems to always generate it.
     : begin statementList end { $2 }
 
-statementList :: { StatementList Name }
+statementList :: { StatementList Unscoped }
     : statementListHelper { reverse $1 }
-statementListHelper :: { StatementList Name }
+statementListHelper :: { StatementList Unscoped }
     : statement { [$1] }
     | statementListHelper ';' statement { $3 : $1 }
 
-statement :: { Statement Name }
+statement :: { Statement Unscoped }
     : statementBase { (Nothing,$1) }
     | labelName ':' statementBase { (Just $1,$3) }
 
-statementBase :: { StatementBase Name }
+statementBase :: { StatementBase Unscoped }
     : varRef ":=" expr { AssignStmt $1 $3 }
     | goto labelName { Goto $2 }
     | ident { ProcedureCall $1 [] }
@@ -192,7 +192,7 @@ statementBase :: { StatementBase Name }
     | compoundStatement     { CompoundStmt $1 }
     | {- empty -}           { EmptyStatement }
 
-varRef :: { VarReference Name }
+varRef :: { VarReference Unscoped }
     : ident { NameRef $1 }
     | varRef'[' commalistNonempty(expr) ']' { ArrayRef $1 $3 }
     | varRef '^' { DeRef $1 }
@@ -205,21 +205,21 @@ forDir :: { ForDir }
     : to    { UpTo }
     | downto { DownTo }
 
-writeArg :: { WriteArg Name }
+writeArg :: { WriteArg Unscoped }
     : expr          { WriteArg $1 Nothing }
     | expr ':' nonnegint  { WriteArg $1 (Just ($3,Nothing)) }
     | expr ':' nonnegint  ':' nonnegint
                     { WriteArg $1 (Just ($3,Just $5)) }
 
-caseEltList :: { [CaseElt Name] }
+caseEltList :: { [CaseElt Unscoped] }
     : caseEltListHelper end    { reverse $1 }
     | caseEltListHelper caseElt end { reverse ($2 : $1) }
 
-caseEltListHelper :: { [CaseElt Name] }
+caseEltListHelper :: { [CaseElt Unscoped] }
     : caseElt ';'      { [$1] }
     | caseEltListHelper caseElt ';' { $2 : $1 }
 
-caseElt :: { CaseElt Name }
+caseElt :: { CaseElt Unscoped }
     : commalistNonempty(constValueOrOthers) ':' statement
             { CaseElt $1 $3 }
 
@@ -296,7 +296,7 @@ variant :: { (Integer,Fields NamedOrdinal) }
 ----------
 -- Expressions
 
-expr :: { Expr Name }
+expr :: { Expr Unscoped }
     : expr '+' expr { BinOp $1 Plus $3 }
     | expr '-' expr { BinOp $1 Minus $3 }
     | expr '*' expr { BinOp $1 Times $3 }
