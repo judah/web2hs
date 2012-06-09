@@ -122,6 +122,7 @@ data Type t
                 }
     | FileType { fileEltType :: Type t }
     | RecordType { recordFields :: FieldList t }
+    | Pointer (Type t)
         deriving Show
 
 --  NOTE: TeX only requires a subset of Pascal's record functionality.

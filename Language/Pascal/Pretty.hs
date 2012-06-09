@@ -223,6 +223,7 @@ instance Pretty t => Pretty (Type t) where
     pretty ArrayType {..} = text "array" <> brackets (commaList arrayIndexType)
                                 <+> text "of" <+> pretty arrayEltType
     pretty FileType {..} = text "file" <+> text "of" <+> pretty fileEltType
+    pretty (Pointer t) = text "^" <> pretty t
     pretty (RecordType FieldList {..}) = myhang (text "record") internals $$ text "end"
       where
         internals = case variantPart of
