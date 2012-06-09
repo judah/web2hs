@@ -127,7 +127,6 @@ instance PrettyID v => Pretty (StatementBase v) where
                             $ semicolonList caseList)
                             $$ text "end"
     -- TODO: This doesn't have a semicolon after it in a compound statement.
-    pretty (MarkLabel l) = pretty l <> colon
     pretty (Goto l) = text "goto" <+> pretty l
     pretty (CompoundStmt ss) = compound ss
     pretty Write {..} = text (if addNewline then "writeln" else "write")

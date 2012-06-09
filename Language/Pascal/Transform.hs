@@ -277,7 +277,6 @@ resolveStatementBase s = case s of
     CaseStmt {..} -> CaseStmt <$> resolveExpr caseExpr 
                             <*> mapM resolveCaseElt caseList
     Goto l -> pure $ Goto l
-    MarkLabel l -> pure $ MarkLabel l
     Write {..} -> Write addNewline <$> mapM resolveWriteArg writeArgs
     CompoundStmt s -> CompoundStmt <$> resolveStatementList s
     EmptyStatement -> pure EmptyStatement

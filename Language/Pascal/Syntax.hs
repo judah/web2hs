@@ -61,7 +61,6 @@ data StatementBase v =
                | RepeatStmt { loopExpr :: Expr v, loopBody :: StatementList v }
                | CaseStmt { caseExpr :: Expr v, caseList :: [CaseElt v] }
                | Goto Label
-               | MarkLabel Label
                | Write {addNewline :: Bool,
                         writeArgs :: [WriteArg v]
                         }
