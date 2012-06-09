@@ -2,6 +2,7 @@ module Language.Pascal.GenerateC where
 
 import Language.Pascal.Syntax
 import Language.Pascal.Pretty
+import Language.Pascal.Typecheck
 import Text.PrettyPrint.HughesPJ
 import Data.Monoid hiding ( (<>) )
 import Numeric
@@ -144,7 +145,7 @@ generateExpr e = case e of
     Negate e -> text "-" <> parens (generateExpr e)
 
 generateConstValue (ConstInt n) = pretty n
-generateConstValue (ConstString s) = quotes (text s)
+generateConstValue (ConstString s) = doubleQuotes (text s)
 generateConstValue (ConstReal r)
     = pretty $ showFFloat Nothing (realToFrac r :: Double) ""
 
@@ -197,16 +198,27 @@ generateWrite :: Bool -> [WriteArg Scoped] -> Doc
 generateWrite addNewline writeArgs
     = text "printf" <> parens (commaList printfArgs)
   where
-    printfArgs = doubleQuotes (pretty $ concat strArgs ++ endLine)
-                    : catMaybes paramArgs
+    printfArgs = doubleQuotes (pretty $ concatMap mkArg writeArgs
+                                                    ++ endLine)
+                    : map (generateExpr  . writeExpr) writeArgs
     endLine = if addNewline then "\\n" else ""
-    (strArgs, paramArgs) = unzip $ map mkArg writeArgs
-    mkArg WriteArg {writeExpr = ConstExpr (ConstString s)} = (s, Nothing)
-    mkArg WriteArg {writeExpr = e, widthAndDigits = Just (k,Nothing)}
-                            = ("%" ++ show (extractConstInt k) ++ "d"
-                              , Just (generateExpr e))
-    mkArg WriteArg {writeExpr = e, widthAndDigits = Nothing}
-                            = ("%d", Just (generateExpr e))
+    mkArg :: WriteArg Scoped -> String
+    mkArg WriteArg {..} = case inferExprType writeExpr of
+        BaseType StringType -> "%s"
+        BaseType IntegralType -> case widthAndDigits of
+            Nothing -> "%d"
+            Just (k,Nothing) 
+                -> "%" ++ show (extractConstInt k) ++ "d"
+        RealType -> case widthAndDigits of
+            Nothing -> "%f"
+            Just (k,Nothing) ->  "%" ++ show (extractConstInt k)
+                                    ++ "f"
+            Just (k,Just d) -> "%" ++ show (extractConstInt k)
+                                    ++ "."
+                                    ++ show (extractConstInt d)
+                                    ++ "f"
+        _ -> error ("Unknown type for write arg: "
+                            ++ show (pretty writeExpr))
 
 extractConstInt :: Expr Scoped -> Integer
 extractConstInt (ConstExpr (ConstInt n)) = n
