@@ -16,6 +16,7 @@ import Control.Monad
 $whitechar = [ \t\n\r\f\v]
 $digit = [0-9]
 $alpha = [a-zA-Z]
+$underline = [_]
 
 pascal :-
 
@@ -56,6 +57,8 @@ var		{ tok TokVar }
 while		{ tok TokWhile }
 write		{ tok TokWrite }
 writeln		{ tok TokWriteln }
+-- Work with -underline
+write_ln	{ tok TokWriteln }
 "+"             { tok TokPlus }
 "*"             { tok TokTimes }
 "/"             { tok TokDivide }
@@ -78,7 +81,7 @@ writeln		{ tok TokWriteln }
 \' ([^'] | "''") * \'   { tok1 $ TokStringConst . unescape . init . tail}
 
 
-$alpha [$alpha $digit]*     { tok1 TokIdent }
+$alpha [$alpha $digit $underline]*     { tok1 TokIdent }
 $digit+                     { tok1 $ TokInt . read }
 $digit+ "." $digit+         { tok1 $ TokReal . readReal}
 -- Messes with the following
