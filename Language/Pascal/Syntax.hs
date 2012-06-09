@@ -84,7 +84,10 @@ data CaseElt v = CaseElt {
 
 data WriteArg v = WriteArg {
                     writeExpr :: Expr v,
-                    widthAndDigits :: Maybe (Integer, Maybe Integer)
+                    -- I'm not sure whether pascal allows
+                    -- arbitrary expressions here, but it seems
+                    -- like it should be OK.
+                    widthAndDigits :: Maybe (Expr v, Maybe (Expr v))
                 }
 
 -- <statement> | BEGIN <statement-list> END

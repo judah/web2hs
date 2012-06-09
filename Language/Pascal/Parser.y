@@ -189,6 +189,7 @@ statementBase :: { StatementBase Unscoped }
     | case expr of caseEltList { CaseStmt $2 $4 }
     | write '(' commalist(writeArg) ')' { Write False $3 }
     | writeln '(' commalist(writeArg) ')' { Write True $3 }
+    | writeln { Write True [] }
     | compoundStatement     { CompoundStmt $1 }
     | {- empty -}           { EmptyStatement }
 
@@ -207,8 +208,8 @@ forDir :: { ForDir }
 
 writeArg :: { WriteArg Unscoped }
     : expr          { WriteArg $1 Nothing }
-    | expr ':' nonnegint  { WriteArg $1 (Just ($3,Nothing)) }
-    | expr ':' nonnegint  ':' nonnegint
+    | expr ':' expr  { WriteArg $1 (Just ($3,Nothing)) }
+    | expr ':' expr  ':' expr
                     { WriteArg $1 (Just ($3,Just $5)) }
 
 caseEltList :: { [CaseElt Unscoped] }

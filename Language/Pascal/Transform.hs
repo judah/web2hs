@@ -282,7 +282,12 @@ resolveStatementBase s = case s of
     EmptyStatement -> pure EmptyStatement
 
 resolveCaseElt CaseElt {..} = CaseElt caseConstants <$> resolveStatement caseStmt
-resolveWriteArg WriteArg {..} = flip WriteArg widthAndDigits <$> resolveExpr writeExpr
+resolveWriteArg WriteArg {..}
+    = WriteArg <$> resolveExpr writeExpr
+        <*> Traversable.forM widthAndDigits
+                (\(x,y) -> (,) <$> resolveExpr x 
+                                <*> Traversable.mapM resolveExpr y)
+
 
 resolveStatementList :: StatementList Unscoped -> VarM (StatementList Scoped)
 resolveStatementList = mapM (secondM resolveStatementBase)
