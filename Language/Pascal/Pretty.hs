@@ -260,4 +260,4 @@ instance Pretty Func where
 
 instance Pretty FuncCall where
     pretty (DefinedFunc f) = pretty  f
-    pretty (BuiltinFunc f) = pretty f
+    pretty (BuiltinFunc f) = pretty f <> text "_builtin"

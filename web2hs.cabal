@@ -53,6 +53,7 @@ Library
         Language.Pascal.Pretty
         Language.Pascal.Interpreter.Base
         Language.Pascal.Interpreter.Builtins
+        Language.Pascal.GenerateC
   
   -- Packages needed in order to build this package.
   Build-depends: base==4.*, array>=0.3 && < 0.5, pretty>=1.0 && < 1.2,

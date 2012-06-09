@@ -143,6 +143,9 @@ data Variant t = Variant {
 data Ordinal = Ordinal { ordLower, ordUpper :: Integer}
                     deriving Show
 
+ordSize :: Ordinal -> Integer
+ordSize Ordinal {..} = ordUpper - ordLower + 1
+
 type NamedType = Type NamedOrdinal
 
 type OrdType = Type Ordinal
