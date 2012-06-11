@@ -139,12 +139,20 @@ data Variant t = Variant {
 
 
 
-
-data Ordinal = Ordinal { ordLower, ordUpper :: Integer}
+-- Things which can index arrays
+data Ordinal = Ordinal Integer Integer
+            -- We need to differentiate Char for output purposes.
+             | OrdinalChar
                     deriving (Show,Eq)
 
 ordSize :: Ordinal -> Integer
-ordSize Ordinal {..} = ordUpper - ordLower + 1
+ordSize o = ordUpper o - ordLower o + 1
+
+ordLower, ordUpper :: Ordinal -> Integer
+ordLower (Ordinal l _) = l
+ordLower OrdinalChar = 0
+ordUpper (Ordinal _ u) = u
+ordUpper OrdinalChar = 255
 
 type NamedType = Type NamedOrdinal
 

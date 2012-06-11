@@ -214,7 +214,9 @@ instance Pretty Bound where
     pretty (VarBound n) = pretty n
 
 instance Pretty Ordinal where
-    pretty Ordinal {..} = pretty ordLower <> text ".." <> pretty ordUpper
+    pretty (Ordinal l u) = pretty l <> text ".." <> pretty u
+    pretty OrdinalChar = text "char"
+
 
 instance Pretty t => Pretty (Type t) where
     pretty (BaseType t) = pretty t

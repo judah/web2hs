@@ -42,7 +42,8 @@ typedef struct {
 
 
 cType :: OrdType -> Doc -> Doc
-cType (BaseType o) v = text "int" <+> v -- TODO: be more careful
+cType (BaseType (Ordinal _ _)) v = text "int" <+> v
+cType (BaseType OrdinalChar) v = text "char" <+> v
 cType RealType v = text "float" <+> v
 cType ArrayType {..} v
     = cType arrayEltType 
@@ -50,6 +51,7 @@ cType ArrayType {..} v
                                     arrayIndexType))
 cType (FileType b) v = case b of
     BaseType (Ordinal 0 255) -> text "FILE *" <+> v
+    BaseType OrdinalChar -> text "FILE *" <+> v
 cType t _ = error ("unknown type: " ++ show t)
 
 cRetType :: OrdType -> Doc
@@ -219,9 +221,9 @@ arrayAccess v es
                                 $ map generateExpr es
     | otherwise = error ("accessing " ++ varName v ++ " as array")
 
-ordAccess Ordinal {..} e
-    | ordLower == 0 = e
-    | otherwise = parens e <> text "-" <> pretty ordLower
+ordAccess o e
+    | ordLower o == 0 = e
+    | otherwise = parens e <> text "-" <> pretty (ordLower o)
 
 cOp Plus = text "+"
 cOp Minus = text "-"
@@ -304,15 +306,14 @@ generateBuiltin f _ = error $ "unknown builtin " ++ show f
 
 readVars :: Expr Scoped -> [Expr Scoped] -> Doc
 readVars (VarExpr (NameRef f)) es
-    | varType f /= FileType byteType
+    | FileType t <- varType f, t `notElem` byteTypes
         = error $ "readVars: file type of " ++ show (pretty f)
     | any (not . isByteVar) es
         = error $ "readVars: not byte types: " ++ show (map pretty es)
     | otherwise = semicolonList
                     [ pretty e <> text " = getc" <> paramList [pretty f] | e <- es]
 
-isByteVar (VarExpr (NameRef v))
-    | varType v == byteType = True
+isByteVar (VarExpr (NameRef v)) = varType v `elem` byteTypes
 isByteVar _ = False
 
-byteType = BaseType $ Ordinal 0 255
+byteTypes = map BaseType [Ordinal 0 255, OrdinalChar]

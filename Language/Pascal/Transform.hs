@@ -24,7 +24,7 @@ type TypeM = ReaderT TypeMap (Reader ConstMap)
 
 builtinTypes :: TypeMap
 builtinTypes = Map.fromList
-                [ ("char", BaseType (Ordinal 0 255))
+                [ ("char", BaseType OrdinalChar)
                 -- TODO: unclear if boolean should be non-ordinal
                 , ("boolean", BaseType (Ordinal 0 1))
                 , ("integer", BaseType (Ordinal (- 2^31) (2^31 - 1)))

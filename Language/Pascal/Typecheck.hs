@@ -10,8 +10,9 @@ data ExprBaseType = StringType | CharType | IntegralType
                     deriving (Show,Eq)
 type ExprType = Type ExprBaseType
 
-exprType :: Type a -> ExprType
-exprType (BaseType _) = BaseType IntegralType
+exprType :: Type Ordinal -> ExprType
+exprType (BaseType (Ordinal _ _)) = BaseType IntegralType
+exprType (BaseType OrdinalChar) = BaseType CharType
 exprType RealType = RealType
 exprType ArrayType {..}
     = ArrayType (map (const IntegralType) arrayIndexType)
