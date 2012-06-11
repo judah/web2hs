@@ -10,6 +10,8 @@ import Data.Maybe (catMaybes)
 
 -- TODO: elim extraneous parens
 
+-- TODO: use better types for short ints
+
 {-
 Type mapping:
 local arrays -> C stack arrays
@@ -47,8 +49,13 @@ cType ArrayType {..} v
         (v <> hcat (map (brackets . pretty . ordSize)
                                     arrayIndexType))
 cType (FileType b) v = case b of
-    BaseType (Ordinal 0 255) -> text "pascal_file" <+> v
+    BaseType (Ordinal 0 255) -> text "FILE *" <+> v
 cType t _ = error ("unknown type: " ++ show t)
+
+cRetType :: OrdType -> Doc
+cRetType (BaseType o) = text "int"
+cRetType RealType = text "float"
+cRetType t = error $ "return type not implemented: " ++ show (pretty t)
 
 braceBlock :: Doc -> Doc -> Doc
 braceBlock head body = (head <+> text "{") $+$ nest 2 body
@@ -59,11 +66,12 @@ generateProgram :: Program Scoped Ordinal -> Doc
 generateProgram Program {progBlock = Block{..},..} = let
     head = pretty "void" <+> pretty progName 
             <> parens (commaList
-                [text "char *" <> pretty p | p <- progArgs])
+                [text "char *" <> progArgVar p | p <- progArgs])
     body = vcat $ map generateStatement blockStatements 
     in headerIncludes
         $$ mapSemis declareConstant blockConstants
         $$ mapSemis declareVar blockVars
+        $$ vcat (map generateFunction blockFunctions)
         $$ braceBlock head body
 
 mapSemis :: (a -> Doc) -> [a] -> Doc
@@ -73,6 +81,8 @@ headerIncludes = text "#include \"builtins.h\""
 
 labelID :: Label -> Doc
 labelID l = text "label_" <> pretty l
+
+progArgVar v = pretty v <> text "_progArg"
 
 declareConstant (v,c)
     = text "const" <+> constType c <+> pretty v <+> equals 
@@ -84,6 +94,29 @@ declareConstant (v,c)
 
 declareVar (v,t) = cType t (pretty v)
 
+
+generateFunction FuncForward {..}
+    = generateFuncHeading funcName funcHeading <> semi
+generateFunction FuncDecl {funcBlock=Block{..},..}
+    -- We currently don't allow nested types or consts, even though
+    -- I believe Pascal does.  (None of the test .web files need them.)
+    | not (null blockConstants)
+        = error $ "function " ++ show (pretty funcName) ++ "has nested consts"
+    | not (null blockConstants)
+        = error $ "function " ++ show (pretty funcName) ++ "has nested types"
+    | otherwise = braceBlock (generateFuncHeading funcName funcHeading)
+        $ mapSemis declareVar blockVars
+        $$ vcat (map generateStatement blockStatements)
+
+-- TODO: params by ref
+
+generateFuncHeading funcName FuncHeading {..} = let
+    ret = maybe (text "void") cRetType funcReturnType
+    args = parens $ commaList $ map generateParam funcArgs
+    in ret <+> pretty funcName <> args
+
+generateParam FuncParam {..} = declareVar (paramName, paramType)
+
 generateStatement (Nothing, s) = generateStatementBase s <> semi
 generateStatement (Just l, s) = hang (labelID l <> colon) 2
                                     $ generateStatementBase s
@@ -92,8 +125,9 @@ generateStatement (Just l, s) = hang (labelID l <> colon) 2
 generateStatementBase s = case s of
     AssignStmt v e
         -> generateRef v <+> equals <+> generateExpr e
-    ProcedureCall f args
+    ProcedureCall (DefinedFunc f) args
         -> pretty f <> parens (commaList $ map generateExpr args)
+    ProcedureCall (BuiltinFunc f) args -> generateBuiltin f args
     IfStmt {..} -> braceBlock (text "if"
                                 <+> parens (generateExpr ifCond))
                     (generateStatement thenStmt)
@@ -115,7 +149,9 @@ generateStatementBase s = case s of
             (vcat (map generateStatement loopBody))
             <> text "while"
             <+> parens (generateExpr (NotOp loopExpr))
-    CaseStmt {..} -> error "case statements not yet implemented"
+    CaseStmt {..} -> braceBlock
+                        (text "switch" <+> parens (generateExpr caseExpr))
+                        $ vcat (map generateCase caseList)
     Goto l -> text "goto" <+> labelID l
     Write {..} -> generateWrite addNewline writeArgs
     CompoundStmt s -> vcat (map generateStatement s)
@@ -132,20 +168,36 @@ forHead i start end DownTo
         <+> pretty i <> text ">=" <> pretty end <> semi
         <+> pretty i <> text "--"
 
+generateCase CaseElt {..} = hang cases 4 statements
+  where
+    cases = commaList (map mkCase caseConstants) <> colon
+    mkCase Nothing = text "default"
+    mkCase (Just (ConstInt k)) = pretty k
+    mkCase (Just c) = error $ "can't handle case " ++ show (pretty c)
+    statements = generateStatement caseStmt $$ text "break;"
 
 generateExpr :: Expr Scoped -> Doc
 generateExpr e = case e of
     ConstExpr c -> generateConstValue c
     VarExpr v -> generateRef v
-    FuncCall f es -> pretty f
-                        <> parens (commaList $ map generateExpr es)
+    FuncCall (DefinedFunc f) es
+                -> pretty f <> parens (commaList $ map generateExpr es)
+    FuncCall (BuiltinFunc f) es -> generateBuiltin f es
+    -- TODO: is this right?
+    -- Treating Divide as always producing a real output.
+    BinOp x Divide y -> castFloat (generateExpr x)
+                            <> cOp Divide <> castFloat (generateExpr y)
     BinOp x o y -> parens (generateExpr x) 
                         <> cOp o <> parens (generateExpr y)
     NotOp e -> text "!" <> parens (generateExpr e)
     Negate e -> text "-" <> parens (generateExpr e)
 
+castFloat e = text "(float)" <> parens e
+
 generateConstValue (ConstInt n) = pretty n
-generateConstValue (ConstString s) = doubleQuotes (text s)
+generateConstValue (ConstString [c]) = text $ show c
+-- quote/escape using the Show Char and Show String instances
+generateConstValue (ConstString s) = text $ show s
 generateConstValue (ConstReal r)
     = pretty $ showFFloat Nothing (realToFrac r :: Double) ""
 
@@ -156,7 +208,7 @@ generateRef (NameRef v) = pretty v
 generateRef (ArrayRef (NameRef v) es)
     = parens (pretty v) <> arrayAccess v es
 generateRef (RecordRef _ _) = error "record refs not implemented"
-generateRef (DeRef v) = error "file refs not implemented"
+generateRef (DeRef v) = text "[FILEREF]" -- error "file refs not implemented"
 generateRef _ = error "refs not implemented yet"
 
 -- TODO: check it's the right number of indices
@@ -195,28 +247,40 @@ cOp GTEQ = text ">="
 -- - no escaping for strings
 
 generateWrite :: Bool -> [WriteArg Scoped] -> Doc
-generateWrite addNewline writeArgs
-    = text "printf" <> parens (commaList printfArgs)
+generateWrite addNewline writeArgs = case writeArgs of
+    -- TODO: what if record type, or non-byte
+    w:ws | FileType (BaseType IntegralType) <- inferExprType (writeExpr w)
+        -> text "fprintf"
+            <> parens (commaList $ generateExpr (writeExpr w) : printfArgs ws)
+    _ -> text "printf" <> parens (commaList $ printfArgs writeArgs)
   where
-    printfArgs = doubleQuotes (pretty $ concatMap mkArg writeArgs
-                                                    ++ endLine)
-                    : map (generateExpr  . writeExpr) writeArgs
+    printfArgs ws = let (fs,xs) = unzip (map mkArg ws)
+                    in doubleQuotes (pretty $ concat fs ++ endLine)
+                        : xs
     endLine = if addNewline then "\\n" else ""
-    mkArg :: WriteArg Scoped -> String
+    mkArg :: WriteArg Scoped -> (String,Doc)
     mkArg WriteArg {..} = case inferExprType writeExpr of
-        BaseType StringType -> "%s"
+        BaseType StringType -> ("%s", generateExpr writeExpr)
+        BaseType CharType -> ("%c", generateExpr writeExpr)
         BaseType IntegralType -> case widthAndDigits of
-            Nothing -> "%d"
+            Nothing -> ("%d",generateExpr writeExpr)
             Just (k,Nothing) 
-                -> "%" ++ show (extractConstInt k) ++ "d"
-        RealType -> case widthAndDigits of
-            Nothing -> "%f"
-            Just (k,Nothing) ->  "%" ++ show (extractConstInt k)
-                                    ++ "f"
-            Just (k,Just d) -> "%" ++ show (extractConstInt k)
+                -> ("%" ++ show (extractConstInt k) ++ "d"
+                   , generateExpr writeExpr)
+            Just (k,Just d)
+                -> ("%" ++ show (extractConstInt k) ++ "."
+                    ++ show (extractConstInt d) ++ "f"
+                , castFloat $ parens (generateExpr writeExpr))
+        RealType -> let
+            f = case widthAndDigits of
+                    Nothing -> "%f"
+                    Just (k,Nothing) ->  "%" ++ show (extractConstInt k)
+                                            ++ "f"
+                    Just (k,Just d) -> "%" ++ show (extractConstInt k)
                                     ++ "."
                                     ++ show (extractConstInt d)
                                     ++ "f"
+            in (f, generateExpr writeExpr)
         _ -> error ("Unknown type for write arg: "
                             ++ show (pretty writeExpr))
 
@@ -225,3 +289,30 @@ extractConstInt (ConstExpr (ConstInt n)) = n
 extractConstInt (VarExpr (NameRef Const {varValue = ConstInt n})) = n
 extractConstInt c = error ("unable to get constant int from expression "
                             ++ show (pretty c))
+
+
+generateBuiltin "chr" [e] = generateExpr e
+generateBuiltin "reset" [VarExpr (NameRef v)]
+    = pretty v <+> equals <> text "fopen"
+            <> paramList [progArgVar v, doubleQuotes (text "r")]
+generateBuiltin "eof" [e] = pretty "pascal_eof" <> paramList [generateExpr e]
+generateBuiltin "eoln" [e] = pretty "pascal_eoln" <> paramList [generateExpr e]
+generateBuiltin "read" (f:es) = readVars f es
+generateBuiltin "read_ln" [VarExpr (NameRef f)]
+                = pretty "pascal_readln" <> paramList [pretty f]
+generateBuiltin f _ = error $ "unknown builtin " ++ show f   
+
+readVars :: Expr Scoped -> [Expr Scoped] -> Doc
+readVars (VarExpr (NameRef f)) es
+    | varType f /= FileType byteType
+        = error $ "readVars: file type of " ++ show (pretty f)
+    | any (not . isByteVar) es
+        = error $ "readVars: not byte types: " ++ show (map pretty es)
+    | otherwise = semicolonList
+                    [ pretty e <> text " = getc" <> paramList [pretty f] | e <- es]
+
+isByteVar (VarExpr (NameRef v))
+    | varType v == byteType = True
+isByteVar _ = False
+
+byteType = BaseType $ Ordinal 0 255

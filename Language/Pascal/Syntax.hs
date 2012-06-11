@@ -12,7 +12,7 @@ type Label = Integer
 
 data Program v t = Program {
                 progName :: Name,
-                progArgs :: [Name],
+                progArgs :: [VarID v],
                 progBlock :: Block v t
             }
 
@@ -122,26 +122,26 @@ data Type t
     | FileType { fileEltType :: Type t }
     | RecordType { recordFields :: FieldList t }
     | Pointer (Type t)
-        deriving Show
+        deriving (Eq, Show)
 
 --  NOTE: TeX only requires a subset of Pascal's record functionality.
 data FieldList t = FieldList {
                         fixedPart :: Fields t,
                         variantPart :: Maybe (Variant t)
-                    } deriving Show
+                    } deriving (Eq,Show)
 
 type Fields t = [(Name,Type t)]
 
 data Variant t = Variant {
                 variantSelector :: Type t,
                 variantFields :: [(Integer,Fields t)]
-                } deriving Show
+                } deriving (Eq,Show)
 
 
 
 
 data Ordinal = Ordinal { ordLower, ordUpper :: Integer}
-                    deriving Show
+                    deriving (Show,Eq)
 
 ordSize :: Ordinal -> Integer
 ordSize Ordinal {..} = ordUpper - ordLower + 1

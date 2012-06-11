@@ -132,12 +132,13 @@ withType n t act = do
 ---------------------------------------------
 
 resolveProgram :: Program Unscoped Ordinal -> Program Scoped Ordinal
-resolveProgram p@Program {..} = Program {
-                                    progBlock = flip evalState 0
-                                                $ flip runReaderT Map.empty
-                                                $ withPrimConsts $ resolveBlock Global progBlock
-                                    ,..
-                                }
+resolveProgram p@Program {..} = 
+                        let (progBlock', progArgs')
+                                    = flip evalState 0
+                                        $ flip runReaderT Map.empty
+                                        $ withPrimConsts
+                                        $ resolveBlock Global progArgs progBlock
+                        in Program {progArgs = progArgs',progBlock=progBlock',..}
 
 withPrimConsts = withConstVar "true" (ConstInt 1)
                 . withConstVar "false" (ConstInt 0)
@@ -145,14 +146,15 @@ withPrimConsts = withConstVar "true" (ConstInt 1)
 
 type VarM = ReaderT (Map Name (Either Var Func)) (State Integer)
 
-resolveBlock :: Scope -> Block Unscoped Ordinal -> VarM (Block Scoped Ordinal)
-resolveBlock s b@Block {..} = withs (uncurry $ withBlockVar s) blockVars 
+resolveBlock :: Scope -> [Name] -> Block Unscoped Ordinal -> VarM (Block Scoped Ordinal, [Var])
+resolveBlock s progArgs b@Block {..} = withs (uncurry $ withBlockVar s) blockVars 
                         $ withs (uncurry withConstVar) blockConstants 
                         $ withs' withFunction blockFunctions $ \blockFunctions -> do
         blockStatements <- mapM resolveStatement blockStatements
         blockConstants <- mapM (firstM resolveVar) blockConstants
         blockVars <- mapM (firstM resolveVar) blockVars
-        return Block {..}
+        progVars <- mapM resolveVar $ filter (`notElem` ["input","output"]) progArgs
+        return (Block {..},progVars)
 
 withBlockVar :: Scope -> Name -> Type Ordinal -> VarM a -> VarM a
 withBlockVar s n t act = do
@@ -222,7 +224,7 @@ withFunction FuncForward {..} act
 withFunction FuncDecl {..} act
     = withHeading funcName funcHeading $ \funcName -> do
         let funcHeading = funcVarHeading funcName
-        funcBlock <- resolveBlock Local funcBlock
+        (funcBlock,[]) <- resolveBlock Local [] funcBlock
         act FuncDecl {..}
 
 withHeading :: Name -> FuncHeading Unscoped Ordinal
