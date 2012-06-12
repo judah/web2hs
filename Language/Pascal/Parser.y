@@ -20,11 +20,11 @@ import Language.Pascal.Syntax
 %name expression expr
 
 -- As specified in ISO7185
-%left '+' '-' or
-%left '*' '/' div mod and
 %left '=' "<>" '<' "<=" '>' ">="
-%left not
+%left '+' '-' or
 %left NEG
+%left '*' '/' div mod and
+%left not
 
 %token
     and             { TokAnd }
