@@ -73,14 +73,16 @@ braceBlock head body = (head <+> text "{") $+$ nest 2 body
 generateProgram :: Program Scoped Ordinal -> Doc
 generateProgram Program {progBlock = Block{..},..} = let
     head = pretty "void" <+> pretty progName 
-            <> parens (commaList
-                [text "char *" <> progArgVar p | p <- progArgs])
+            <> parens (commaList [text "char *" <> progArgVar p | p <- progArgs])
     body = vcat $ map generateStatement blockStatements 
     in headerIncludes
         $$ mapSemis declareConstant blockConstants
         $$ mapSemis declareVar blockVars
+        $$ mapSemis (\p -> text "char *" <> progGlobalVar p) progArgs
         $$ vcat (map generateFunction blockFunctions)
-        $$ braceBlock head body
+        $$ braceBlock head 
+            (mapSemis (\p -> progGlobalVar p <+> equals <+> progArgVar p) progArgs
+                $$ body)
 
 mapSemis :: (a -> Doc) -> [a] -> Doc
 mapSemis f xs = vcat $ map (\x -> f x <> semi) xs
@@ -91,6 +93,7 @@ labelID :: Label -> Doc
 labelID l = text "label_" <> pretty l
 
 progArgVar v = pretty v <> text "_progArg"
+progGlobalVar v = pretty v <> text "_progGlobal"
 
 declareConstant (v,c)
     = text "const" <+> constType c <+> pretty v <+> equals 
@@ -334,7 +337,7 @@ generateBuiltin f _ = error $ "unknown builtin " ++ show f
 
 openForRead :: Expr Scoped -> [Expr Scoped] -> Doc
 openForRead f es = pretty f <+> equals <+> case es of
-    [] | VarExpr (NameRef v) <- f -> openForRead (progArgVar v)
+    [] | VarExpr (NameRef v) <- f -> openForRead (progGlobalVar v)
     [e] -> openForRead (generateExpr e)
   where
     openForRead path = text "fopen"
@@ -342,7 +345,7 @@ openForRead f es = pretty f <+> equals <+> case es of
 
 openForWrite :: Expr Scoped -> [Expr Scoped] -> Doc
 openForWrite f es = pretty f <+> equals <+> case es of
-    [] | VarExpr (NameRef v) <- f -> openForWrite (progArgVar v)
+    [] | VarExpr (NameRef v) <- f -> openForWrite (progGlobalVar v)
     [ConstExpr (ConstString "TTY:")] -> text "stdout"
     [e] -> openForWrite (generateExpr e)
   where
