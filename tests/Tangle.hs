@@ -1,5 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-module Main where
+module Tangle where
 
 import Foreign.C
 import Foreign.Ptr

@@ -313,21 +313,32 @@ extractConstInt c = error ("unable to get constant int from expression "
 
 
 generateBuiltin "chr" [e] = generateExpr e
-generateBuiltin "reset" [VarExpr (NameRef v)]
-    = pretty v <+> equals <> text "fopen"
-            <> paramList [progArgVar v, doubleQuotes (text "r")]
+generateBuiltin "reset" (e:es) = openForRead e es
 generateBuiltin "rewrite" (e:es) = openForWrite e es
-    
 generateBuiltin "eof" [e] = pretty "pascal_eof" <> paramList [generateExpr e]
 generateBuiltin "eoln" [e] = pretty "pascal_eoln" <> paramList [generateExpr e]
 generateBuiltin "read" (f:es) = readVars f es
 generateBuiltin "read_ln" [VarExpr (NameRef f)]
                 = pretty "pascal_readln" <> paramList [pretty f]
 generateBuiltin "get" [f] = pretty "(void)getc" <> paramList [f]
+-- set_pos/cur_pos are Knuth-isms, rather than standard pascal.
+generateBuiltin "set_pos" [f,p] = pretty "pascal_setpos" <> paramList [pretty f, generateExpr p]
 generateBuiltin "abs" [x] = pretty "ABS" <> paramList [x]
+generateBuiltin "trunc" [x] = pretty "TRUNC" <> paramList [x]
+generateBuiltin "round" [x] = pretty "round" <> paramList [x]
+generateBuiltin "cur_pos" [f] = pretty "pascal_curpos" <> paramList [f]
 -- The WEB break function 
 generateBuiltin "break" [e] = empty
+generateBuiltin "page" [] = empty -- used only in primes.web
 generateBuiltin f _ = error $ "unknown builtin " ++ show f   
+
+openForRead :: Expr Scoped -> [Expr Scoped] -> Doc
+openForRead f es = pretty f <+> equals <+> case es of
+    [] | VarExpr (NameRef v) <- f -> openForRead (progArgVar v)
+    [e] -> openForRead (generateExpr e)
+  where
+    openForRead path = text "fopen"
+                        <> paramList [path, doubleQuotes (text "r")]
 
 openForWrite :: Expr Scoped -> [Expr Scoped] -> Doc
 openForWrite f es = pretty f <+> equals <+> case es of

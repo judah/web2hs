@@ -47,8 +47,20 @@ void pascal_readln(FILE *f) {
         ungetc(c,f);
 }
 
-extern int pascal_peekc(FILE *f) {
+int pascal_peekc(FILE *f) {
     int c = getc(f);
     ungetc(c,f);
     return c;
+}
+
+void pascal_setpos(FILE *f, int p) {
+   if (p<0) {
+       fseek(f,0,SEEK_END);
+   } else {
+       fseek(f,p,SEEK_SET);
+   }
+}
+
+int pascal_curpos(FILE *f) {
+    return ftell(f);
 }

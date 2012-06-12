@@ -4,10 +4,15 @@ set -e
 
 CBITS=../cbits
 OUTPUTS=outputs
+CC=clang
+GHC=ghc
+RUNGHC=runghc
 
-runghc TestParser.hs pascal/primes.p $OUTPUTS/primes_web.c
-gcc -c -I$CBITS $CBITS/builtins.c -o $OUTPUTS/builtins.o
-gcc -c -I$CBITS $OUTPUTS/primes_web.c -o $OUTPUTS/primes_web.o
-ghc -e main $OUTPUTS/builtins.o $OUTPUTS/primes_web.o Primes.hs \
-    -odir $OUTPUTS -hidir $OUTPUTS
+$RUNGHC TestParser.hs pascal/primes.p $OUTPUTS/primes_web.c
+$CC -c -I$CBITS $CBITS/builtins.c -o $OUTPUTS/builtins.o
+$CC -c -I$CBITS $OUTPUTS/primes_web.c -o $OUTPUTS/primes_web.o
+$GHC --make $OUTPUTS/builtins.o $OUTPUTS/primes_web.o Primes.hs \
+    -main-is Primes.main \
+    -o $OUTPUTS/Primes -odir $OUTPUTS -hidir $OUTPUTS
+$OUTPUTS/Primes
 
