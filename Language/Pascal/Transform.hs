@@ -212,20 +212,19 @@ resolveFuncReturnOrVar n = do
 
     
 
-
-
-
 withFunction :: FunctionDecl Unscoped Ordinal
             -> (FunctionDecl Scoped Ordinal -> VarM a) -> VarM a
-withFunction FuncForward {..} act
-    = withHeading funcName funcHeading $ \funcName -> do
-        let funcHeading = funcVarHeading funcName
-        act FuncForward {..}
-withFunction FuncDecl {..} act
-    = withHeading funcName funcHeading $ \funcName -> do
-        let funcHeading = funcVarHeading funcName
-        (funcBlock,[]) <- resolveBlock Local [] funcBlock
-        act FuncDecl {..}
+withFunction (FuncForward n h) act = do
+    d <- withHeading n h $ \funcName -> do
+            let funcHeading = funcVarHeading funcName
+            return FuncForward {..}
+    withFunc (funcName d) $ act d
+withFunction (FuncDecl n h b) act = do
+    d <- withHeading n h $ \funcName -> do
+            let funcHeading = funcVarHeading funcName
+            (funcBlock,[]) <- resolveBlock Local [] b
+            return FuncDecl {..}
+    withFunc (funcName d) $ act d
 
 withHeading :: Name -> FuncHeading Unscoped Ordinal
             -> (Func -> VarM a) -> VarM a
@@ -241,7 +240,11 @@ withHeading n FuncHeading {..} act = do
                 let f = Func {..}
                 withFuncReturn f funcReturnType
                     $ local (Map.insert n (Right f)) $ act f
-                -- local (Map.insert n (Right f)) $ act f
+
+
+withFunc :: Func -> VarM a -> VarM a
+withFunc f@Func {..} act = local (Map.insert funcVarName (Right f)) act
+
 -- TODO: test for valid FuncReturns...
 withFuncReturn :: Func -> Maybe (Type Ordinal) -> VarM a -> VarM a
 withFuncReturn _ Nothing = id
