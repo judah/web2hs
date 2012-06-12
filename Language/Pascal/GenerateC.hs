@@ -6,7 +6,7 @@ import Language.Pascal.Typecheck
 import Text.PrettyPrint.HughesPJ
 import Data.Monoid hiding ( (<>) )
 import Numeric
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, isNothing)
 
 -- TODO: elim extraneous parens
 
@@ -52,7 +52,13 @@ cType ArrayType {..} v
 cType (FileType b) v = case b of
     BaseType (Ordinal 0 255) -> text "FILE *" <+> v
     BaseType OrdinalChar -> text "FILE *" <+> v
+cType RecordType { recordFields = FieldList {variantPart=Nothing,..}} v
+    = cRecordType fixedPart <+> v
 cType t _ = error ("unknown type: " ++ show t)
+
+cRecordType fs = text "struct" <+> braces (semilistOneLine $ map cField fs)
+  where
+    cField (n,t) = cType t (pretty n) 
 
 cRetType :: OrdType -> Doc
 cRetType (BaseType o) = text "int"
@@ -96,7 +102,7 @@ declareConstant (v,c)
 
 declareVar (v,t) = cType t (pretty v)
 
-
+generateFunction :: FunctionDecl Scoped Ordinal -> Doc
 generateFunction FuncForward {..}
     = generateFuncHeading funcName funcHeading <> semi
 generateFunction FuncDecl {funcBlock=Block{..},..}
@@ -108,7 +114,18 @@ generateFunction FuncDecl {funcBlock=Block{..},..}
         = error $ "function " ++ show (pretty funcName) ++ "has nested types"
     | otherwise = braceBlock (generateFuncHeading funcName funcHeading)
         $ mapSemis declareVar blockVars
-        $$ vcat (map generateStatement blockStatements)
+        $$ (wrapFuncRet funcName 
+            $ vcat (map generateStatement blockStatements))
+
+
+wrapFuncRet :: Func -> Doc -> Doc
+wrapFuncRet f@Func {funcVarHeading=FuncHeading {funcReturnType=r}} d
+    = case r of
+        Nothing -> d
+        Just t -> let v = FuncReturn f t
+                  in cType t (pretty v) <> semi
+                        $$ d
+                        $$ text "return" <+> pretty v <> semi
 
 -- TODO: params by ref
 
@@ -170,17 +187,18 @@ forHead i start end DownTo
         <+> pretty i <> text ">=" <> pretty end <> semi
         <+> pretty i <> text "--"
 
-generateCase CaseElt {..} = hang cases 4 statements
+generateCase CaseElt {..} = hang cases 2 statements
   where
-    cases = commaList (map mkCase caseConstants) <> colon
-    mkCase Nothing = text "default"
-    mkCase (Just (ConstInt k)) = pretty k
-    mkCase (Just c) = error $ "can't handle case " ++ show (pretty c)
+    cases = vcat $ map (<> colon)
+            $ map (maybe (text "default") mkCase) caseConstants
+    mkCase (ConstInt k) = text "case " <> pretty k
+    mkCase c = error $ "can't handle case " ++ show (pretty c)
     statements = generateStatement caseStmt $$ text "break;"
 
 generateExpr :: Expr Scoped -> Doc
 generateExpr e = case e of
     ConstExpr c -> generateConstValue c
+    VarExpr (DeRef v) -> pretty "pascal_peekc" <> parens (generateRef v)
     VarExpr v -> generateRef v
     FuncCall (DefinedFunc f) es
                 -> pretty f <> parens (commaList $ map generateExpr es)
@@ -209,7 +227,7 @@ generateRef (NameRef v) = pretty v
 -- TODO: more general arrays
 generateRef (ArrayRef (NameRef v) es)
     = parens (pretty v) <> arrayAccess v es
-generateRef (RecordRef _ _) = error "record refs not implemented"
+generateRef (RecordRef v n) = parens (pretty v) <> text "." <> pretty n
 generateRef (DeRef v) = text "[FILEREF]" -- error "file refs not implemented"
 generateRef _ = error "refs not implemented yet"
 
@@ -251,7 +269,8 @@ cOp GTEQ = text ">="
 generateWrite :: Bool -> [WriteArg Scoped] -> Doc
 generateWrite addNewline writeArgs = case writeArgs of
     -- TODO: what if record type, or non-byte
-    w:ws | FileType (BaseType IntegralType) <- inferExprType (writeExpr w)
+    w:ws | FileType t <- inferExprType (writeExpr w)
+            , t `elem` map BaseType [IntegralType, CharType]
         -> text "fprintf"
             <> parens (commaList $ generateExpr (writeExpr w) : printfArgs ws)
     _ -> text "printf" <> parens (commaList $ printfArgs writeArgs)
@@ -297,12 +316,27 @@ generateBuiltin "chr" [e] = generateExpr e
 generateBuiltin "reset" [VarExpr (NameRef v)]
     = pretty v <+> equals <> text "fopen"
             <> paramList [progArgVar v, doubleQuotes (text "r")]
+generateBuiltin "rewrite" (e:es) = openForWrite e es
+    
 generateBuiltin "eof" [e] = pretty "pascal_eof" <> paramList [generateExpr e]
 generateBuiltin "eoln" [e] = pretty "pascal_eoln" <> paramList [generateExpr e]
 generateBuiltin "read" (f:es) = readVars f es
 generateBuiltin "read_ln" [VarExpr (NameRef f)]
                 = pretty "pascal_readln" <> paramList [pretty f]
+generateBuiltin "get" [f] = pretty "(void)getc" <> paramList [f]
+generateBuiltin "abs" [x] = pretty "ABS" <> paramList [x]
+-- The WEB break function 
+generateBuiltin "break" [e] = empty
 generateBuiltin f _ = error $ "unknown builtin " ++ show f   
+
+openForWrite :: Expr Scoped -> [Expr Scoped] -> Doc
+openForWrite f es = pretty f <+> equals <+> case es of
+    [] | VarExpr (NameRef v) <- f -> openForWrite (progArgVar v)
+    [ConstExpr (ConstString "TTY:")] -> text "stdout"
+    [e] -> openForWrite (generateExpr e)
+  where
+    openForWrite path = text "fopen"
+                                <> paramList [path,doubleQuotes (text "w")]
 
 readVars :: Expr Scoped -> [Expr Scoped] -> Doc
 readVars (VarExpr (NameRef f)) es

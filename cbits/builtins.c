@@ -46,3 +46,9 @@ void pascal_readln(FILE *f) {
     if (c=='\r' && (c = getc(f)) != '\n' && c != EOF)
         ungetc(c,f);
 }
+
+extern int pascal_peekc(FILE *f) {
+    int c = getc(f);
+    ungetc(c,f);
+    return c;
+}
