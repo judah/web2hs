@@ -120,7 +120,8 @@ data Type t
                     arrayEltType :: Type t
                 }
     | FileType { fileEltType :: Type t }
-    | RecordType { recordFields :: FieldList t }
+    | RecordType { recordName :: Maybe Name,
+                   recordFields :: FieldList t }
     | Pointer (Type t)
         deriving (Eq, Show)
 

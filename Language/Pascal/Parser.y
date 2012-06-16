@@ -117,7 +117,10 @@ blockTypes :: { [(Name,NamedType)] }
     : type semilist(typeDeclar) { $2 }
     | {- empty -}           { [] }
 typeDeclar :: { (Name,NamedType) }
-    : ident '=' typeDescr   { ($1,$3) }
+    : ident '=' typeDescr   { case $3 of
+                                RecordType {..}
+                                    -> ($1,RecordType {recordName=Just $1,..})
+                                _ -> ($1,$3) }
 
 blockVars :: { [(Name,NamedType)] }
     : var semilist(varDecls)   { [(n,t) | (ns,t) <- $2, n <- ns] }
@@ -250,7 +253,7 @@ typeDescr :: { NamedType }
                         { ArrayType $4 $7 }
     | maybepacked file of typeDescr
                         { FileType $4 }
-    | maybepacked record fieldList end { RecordType $3 }
+    | maybepacked record fieldList end { RecordType Nothing $3 }
     | '^' typeDescr { Pointer $2 }
 
 

@@ -87,8 +87,8 @@ flattenType (BaseType t) = BaseType <$> flattenOrd t
 flattenType (ArrayType ts e) = ArrayType <$> mapM flattenOrd ts <*> flattenType e
 flattenType (FileType t) = FileType <$> flattenType t
 flattenType (Pointer t) = Pointer <$> flattenType t
-flattenType (RecordType FieldList {..})
-    = (\x y -> RecordType $ FieldList x y) <$> flattenFields fixedPart
+flattenType (RecordType n FieldList {..})
+    = (\x y -> RecordType n $ FieldList x y) <$> flattenFields fixedPart
                                <*> Traversable.mapM flattenVariant variantPart
   where
     flattenFields = mapM (secondM flattenType)

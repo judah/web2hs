@@ -52,6 +52,7 @@ cType ArrayType {..} v
 cType (FileType b) v = case b of
     BaseType (Ordinal 0 255) -> text "FILE *" <+> v
     BaseType OrdinalChar -> text "FILE *" <+> v
+cType RecordType { recordName = Just n } v = pretty n <+> v
 cType RecordType { recordFields = FieldList {variantPart=Nothing,..}} v
     = cRecordType fixedPart <+> v
 cType t _ = error ("unknown type: " ++ show t)
@@ -77,6 +78,8 @@ generateProgram Program {progBlock = Block{..},..} = let
     body = vcat $ map generateStatement blockStatements 
     in headerIncludes
         $$ mapSemis declareConstant blockConstants
+        $$ mapSemis declareRecordType [(n,fs) | (n,RecordType {recordFields=fs})
+                                                <- blockTypes]
         $$ mapSemis declareVar blockVars
         $$ mapSemis (\p -> text "char *" <> progGlobalVar p) progArgs
         $$ vcat (map generateFunction blockFunctions)
@@ -104,6 +107,9 @@ declareConstant (v,c)
     constType (ConstString _) = text "char*"
 
 declareVar (v,t) = cType t (pretty v)
+
+declareRecordType (n,fs) = text "typedef" <+> cType (RecordType Nothing fs)
+                                                (pretty n)
 
 generateFunction :: FunctionDecl Scoped Ordinal -> Doc
 generateFunction FuncForward {..}
