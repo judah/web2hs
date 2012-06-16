@@ -75,14 +75,16 @@ generateProgram :: Program Scoped Ordinal -> Doc
 generateProgram Program {progBlock = Block{..},..} = let
     head = pretty "void" <+> pretty progName 
             <> parens (commaList [text "char *" <> progArgVar p | p <- progArgs])
-    body = vcat $ map generateStatement blockStatements 
+    jmpLabels = blockLabels
+    body = programStatements jmpLabels blockStatements
     in headerIncludes
         $$ mapSemis declareConstant blockConstants
         $$ mapSemis declareRecordType [(n,fs) | (n,RecordType {recordFields=fs})
                                                 <- blockTypes]
         $$ mapSemis declareVar blockVars
         $$ mapSemis (\p -> text "char *" <> progGlobalVar p) progArgs
-        $$ vcat (map generateFunction blockFunctions)
+        $$ mapSemis (\l -> text "jmp_buf" <+> labelBuf l) jmpLabels
+        $$ vcat (map (generateFunction jmpLabels) blockFunctions)
         $$ braceBlock head 
             (mapSemis (\p -> progGlobalVar p <+> equals <+> progArgVar p) progArgs
                 $$ body)
@@ -91,9 +93,22 @@ mapSemis :: (a -> Doc) -> [a] -> Doc
 mapSemis f xs = vcat $ map (\x -> f x <> semi) xs
 
 headerIncludes = text "#include \"builtins.h\""
+                $$ text "#include <setjmp.h>"
 
+-- Labels come in two varieties:
+-- 1) most goto/labels are local to a single function, and map directly
+--    to C labels.
+-- 2) Some error-recovery labels are defined in the main program and then
+--    other functions goto them.  We need to use setjmp/longjmp for them.
+--    This is relatively safe since the main program function
+--    doesn't define any local variables.
+-- As a result, the statement-generating code passes around a list of labels
+-- which should be jumped to via longjmp instead of via goto.
 labelID :: Label -> Doc
 labelID l = text "label_" <> pretty l
+
+labelBuf :: Label -> Doc
+labelBuf l = text "label_" <> pretty l <> text "_buf"
 
 progArgVar v = pretty v <> text "_progArg"
 progGlobalVar v = pretty v <> text "_progGlobal"
@@ -111,10 +126,20 @@ declareVar (v,t) = cType t (pretty v)
 declareRecordType (n,fs) = text "typedef" <+> cType (RecordType Nothing fs)
                                                 (pretty n)
 
-generateFunction :: FunctionDecl Scoped Ordinal -> Doc
-generateFunction FuncForward {..}
+programStatements :: [Label] -> [Statement Scoped] -> Doc
+programStatements jmpLabels ss = loop (reverse ss)
+  where
+    loop [] = empty
+    loop ((Nothing,s):ss)
+        = loop ss $$ generateStatementBase jmpLabels s <> semi
+    loop ((Just l,s):ss)
+        = braceBlock (jmpTest l) (loop ((Nothing,s):ss))
+    jmpTest l = text "if (0==setjmp(" <> labelBuf l <> text "))"
+
+generateFunction :: [Label] -> FunctionDecl Scoped Ordinal -> Doc
+generateFunction _ FuncForward {..}
     = generateFuncHeading funcName funcHeading <> semi
-generateFunction FuncDecl {funcBlock=Block{..},..}
+generateFunction jmpLabels FuncDecl {funcBlock=Block{..},..}
     -- We currently don't allow nested types or consts, even though
     -- I believe Pascal does.  (None of the test .web files need them.)
     | not (null blockConstants)
@@ -124,7 +149,7 @@ generateFunction FuncDecl {funcBlock=Block{..},..}
     | otherwise = braceBlock (generateFuncHeading funcName funcHeading)
         $ mapSemis declareVar blockVars
         $$ (wrapFuncRet funcName 
-            $ vcat (map generateStatement blockStatements))
+            $ vcat (map (generateStatement jmpLabels) blockStatements))
 
 
 wrapFuncRet :: Func -> Doc -> Doc
@@ -145,12 +170,13 @@ generateFuncHeading funcName FuncHeading {..} = let
 
 generateParam FuncParam {..} = declareVar (paramName, paramType)
 
-generateStatement (Nothing, s) = generateStatementBase s <> semi
-generateStatement (Just l, s) = hang (labelID l <> colon) 2
-                                    $ generateStatementBase s
+generateStatement :: [Label] -> Statement Scoped -> Doc
+generateStatement ls (Nothing, s) = generateStatementBase ls s <> semi
+generateStatement ls (Just l, s) = hang (labelID l <> colon) 2
+                                    $ generateStatementBase ls s
                                         <> semi
 
-generateStatementBase s = case s of
+generateStatementBase jmpLabels s = case s of
     AssignStmt v e
         -> generateRef v <+> equals <+> generateExpr e
     ProcedureCall (DefinedFunc f) args
@@ -158,31 +184,34 @@ generateStatementBase s = case s of
     ProcedureCall (BuiltinFunc f) args -> generateBuiltin f args
     IfStmt {..} -> braceBlock (text "if"
                                 <+> parens (generateExpr ifCond))
-                    (generateStatement thenStmt)
+                    (generateStatement jmpLabels thenStmt)
                     $+$ case elseStmt of
                           Nothing -> mempty
                           Just s -> braceBlock (text "else")
-                                        (generateStatement s)
+                                        (generateStatement jmpLabels s)
     ForStmt {..}
         -> braceBlock (text "for" <+> parens
                         (forHead loopVar forStart
                             forEnd forDirection))
-                $ generateStatement forBody
+                $ generateStatement jmpLabels forBody
     WhileStmt {..}
         -> braceBlock (text "while" <+> parens
                             (generateExpr loopExpr))
-                $ generateStatement loopStmt
+                $ generateStatement jmpLabels loopStmt
     RepeatStmt {..}
         -> braceBlock (text "do")
-            (vcat (map generateStatement loopBody))
+            (vcat (map (generateStatement jmpLabels) loopBody))
             <> text "while"
             <+> parens (generateExpr (NotOp loopExpr))
     CaseStmt {..} -> braceBlock
                         (text "switch" <+> parens (generateExpr caseExpr))
-                        $ vcat (map generateCase caseList)
-    Goto l -> text "goto" <+> labelID l
+                        $ vcat (map (generateCase jmpLabels) caseList)
+    Goto l
+        | l `elem` jmpLabels -> text "longjmp"
+                                    <+> paramList [labelBuf l, pretty "1"]
+        | otherwise -> text "goto" <+> labelID l
     Write {..} -> generateWrite addNewline writeArgs
-    CompoundStmt s -> vcat (map generateStatement s)
+    CompoundStmt s -> vcat (map (generateStatement jmpLabels) s)
     EmptyStatement -> empty
 
 forHead :: VarID Scoped -> Expr Scoped -> Expr Scoped -> ForDir
@@ -196,13 +225,13 @@ forHead i start end DownTo
         <+> pretty i <> text ">=" <> pretty end <> semi
         <+> pretty i <> text "--"
 
-generateCase CaseElt {..} = hang cases 2 statements
+generateCase jmpLabels CaseElt {..} = hang cases 2 statements
   where
     cases = vcat $ map (<> colon)
             $ map (maybe (text "default") mkCase) caseConstants
     mkCase (ConstInt k) = text "case " <> pretty k
     mkCase c = error $ "can't handle case " ++ show (pretty c)
-    statements = generateStatement caseStmt $$ text "break;"
+    statements = generateStatement jmpLabels caseStmt $$ text "break;"
 
 generateExpr :: Expr Scoped -> Doc
 generateExpr e = case e of
@@ -267,10 +296,11 @@ cOp LTEQ = text "<="
 cOp OpGT = text ">"
 cOp GTEQ = text ">="
 
+
 --------------------
 
 -- TODO: more general
--- For now:
+-- For now (TODO I do more now)
 -- - either a const string or an integer
 -- - no widths
 -- - no escaping for strings

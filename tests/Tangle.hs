@@ -10,8 +10,8 @@ foreign import ccall "TANGLE" tangle
 
 main = do
     [webFile,changeFile,pascalFile,poolFile] <- getArgs
-    withCString webFile $ \cWebFile ->
-    withCString changeFile $ \cChangeFile ->
-    withCString pascalFile $ \cPascalFile ->
-    withCString poolFile $ \cPoolFile ->
-    pooltype cWebFile cChangeFile cPascalFile cPoolFile
+    withCString webFile $ \cWebFile -> do
+    withCString changeFile $ \cChangeFile -> do
+    withCString pascalFile $ \cPascalFile -> do
+    withCString poolFile $ \cPoolFile -> do
+    tangle cWebFile cChangeFile cPascalFile cPoolFile
