@@ -11,6 +11,8 @@ const int false_1c = 0;
 
 // Test whether the file is at the end-of-file.
 bool pascal_eof(FILE *f) {
+    if (f==NULL) return true; // file open failed
+
     // TODO: Register?
     int c;
 
@@ -30,6 +32,7 @@ bool pascal_eof(FILE *f) {
 bool pascal_eoln(FILE *f) {
     int c;
 
+    if (f==NULL) return true; // file open failed
     if (feof(f)) return true;
     c = getc(f);
 
