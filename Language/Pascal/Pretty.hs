@@ -154,8 +154,8 @@ instance PrettyID v => Pretty (VarReference v) where
     pretty (RecordRef n f) = pretty n <> char '.' <> pretty f
 
 instance PrettyID v => Pretty (CaseElt v) where
-    pretty CaseElt {..} = commaList (map caseConst caseConstants) <+> colon
-                            <+> pretty caseStmt
+    pretty CaseElt {..} = myhang (commaList (map caseConst caseConstants) <> colon)
+                            $ pretty caseStmt
         where
             caseConst Nothing = text "others"
             caseConst (Just e) = pretty e
