@@ -2,15 +2,12 @@
 set -x
 set -e
 
-CBITS=../web2hs-lib/cbits
 OUTPUTS=outputs
-CC=clang
 GHC=ghc
 
 web2hs pascal/pooltype.p $OUTPUTS/pooltype_web.c
-$CC -c -I$CBITS $CBITS/builtins.c -o $OUTPUTS/builtins.o
-$CC -c -I$CBITS $OUTPUTS/pooltype_web.c -o $OUTPUTS/pooltype_web.o
-$GHC --make $OUTPUTS/builtins.o $OUTPUTS/pooltype_web.o Pooltype.hs \
+$GHC --make -package web2hs-lib \
+    $OUTPUTS/pooltype_web.c Pooltype.hs \
     -main-is Pooltype.main \
     -o $OUTPUTS/Pooltype -odir $OUTPUTS -hidir $OUTPUTS
 $OUTPUTS/Pooltype inputs/tex.pool

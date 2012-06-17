@@ -1,4 +1,4 @@
-#include "builtins.h"
+#include "web2hs_pascal_builtins.h"
 
 void page_builtin() {
     // do nothing, for now

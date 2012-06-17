@@ -92,7 +92,7 @@ generateProgram Program {progBlock = Block{..},..} = let
 mapSemis :: (a -> Doc) -> [a] -> Doc
 mapSemis f xs = vcat $ map (\x -> f x <> semi) xs
 
-headerIncludes = text "#include \"builtins.h\""
+headerIncludes = text "#include \"web2hs_pascal_builtins.h\""
                 $$ text "#include <setjmp.h>"
 
 -- Labels come in two varieties:

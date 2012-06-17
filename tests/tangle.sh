@@ -2,18 +2,15 @@
 set -x
 set -e
 
-CBITS=../web2hs-lib/cbits
 INPUTS=inputs
 OUTPUTS=outputs
-CC=clang
 GHC=ghc
 
 tangle -underline web/tangle.web web/tangle.ch
 mv tangle.p $OUTPUTS/tangle.p
 web2hs $OUTPUTS/tangle.p $OUTPUTS/tangle_web.c
-$CC -c -I$CBITS $CBITS/builtins.c -o $OUTPUTS/builtins.o
-$CC -c -I$CBITS $OUTPUTS/tangle_web.c -o $OUTPUTS/tangle_web.o
-$GHC --make $OUTPUTS/builtins.o $OUTPUTS/tangle_web.o Tangle.hs \
+$GHC --make -package web2hs-lib \
+    $OUTPUTS/tangle_web.c Tangle.hs \
     -main-is Tangle.main \
     -o $OUTPUTS/Tangle -odir $OUTPUTS -hidir $OUTPUTS
 $OUTPUTS/Tangle $INPUTS/primes.web $INPUTS/primes.ch $OUTPUTS/primes-test.p $OUTPUTS/primes-test.pool
