@@ -2,13 +2,12 @@
 set -x
 set -e
 
-CBITS=../cbits
+CBITS=../web2hs-lib/cbits
 OUTPUTS=outputs
 CC=clang
 GHC=ghc
-RUNGHC=runghc
 
-$RUNGHC TestParser.hs pascal/primes.p $OUTPUTS/primes_web.c
+web2hs pascal/primes.p $OUTPUTS/primes_web.c
 $CC -c -I$CBITS $CBITS/builtins.c -o $OUTPUTS/builtins.o
 $CC -c -I$CBITS $OUTPUTS/primes_web.c -o $OUTPUTS/primes_web.o
 $GHC --make $OUTPUTS/builtins.o $OUTPUTS/primes_web.o Primes.hs \

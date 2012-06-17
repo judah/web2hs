@@ -1,0 +1,4 @@
+Subfolders are:
+
+- web2hs: transform a .p file into a .c file.
+- web2hs-lib: runtime support for the output of web2hs.

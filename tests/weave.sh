@@ -2,7 +2,7 @@
 set -x
 set -e
 
-CBITS=../cbits
+CBITS=../web2hs-lib/cbits
 INPUTS=inputs
 OUTPUTS=outputs
 CC=clang
@@ -18,3 +18,4 @@ $GHC --make $OUTPUTS/builtins.o $OUTPUTS/weave_web.o Weave.hs \
 $OUTPUTS/Weave $INPUTS/primes.web $INPUTS/primes.ch $OUTPUTS/primes.tex
 $OUTPUTS/Weave $INPUTS/tangle.web $INPUTS/tangle.ch $OUTPUTS/tangle.tex
 
+echo  # since weave doesn't print a newline
