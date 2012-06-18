@@ -53,9 +53,9 @@ Executable web2hs
     Build-tools: alex>=3.0.2
     Build-depends: base==4.*, array>=0.3 && < 0.5, pretty>=1.0 && < 1.2,
                  containers==0.4.*, transformers>=0.2 && < 0.4,
-                 filepath>=1.0 && < 1.4
+                 filepath>=1.0 && < 1.4, cmdargs==0.9.*
     Extensions: RecordWildCards, TypeSynonymInstances, FlexibleInstances
               GADTs, GeneralizedNewtypeDeriving, TypeFamilies
               EmptyDataDecls, FlexibleContexts, UndecidableInstances
-              StandaloneDeriving, PatternGuards
+              StandaloneDeriving, PatternGuards, DeriveDataTypeable
 
