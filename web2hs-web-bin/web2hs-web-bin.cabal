@@ -1,0 +1,22 @@
+name:                web2hs-web-bin
+version:             0.1.0.0
+-- synopsis:            
+-- description:         
+license:             BSD3
+license-file:        LICENSE
+author:              Judah Jacobson
+maintainer:          judah.jacobson@gmail.com
+-- copyright:           
+-- category:            
+build-type:          Custom
+cabal-version:       >=1.8
+
+executable web2hs-tangle
+  main-is:          Tangle.hs
+  build-depends:    base ==4.5.*, web2hs-lib==0.1.*
+  c-sources:        tangle.c
+
+executable web2hs-weave
+  main-is:          Weave.hs
+  build-depends:    base ==4.5.*, web2hs-lib==0.1.*
+  c-sources:        weave.c
