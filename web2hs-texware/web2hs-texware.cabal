@@ -15,8 +15,10 @@ executable web2hs-dvitype
   main-is:             DVIType.hs
   build-depends:       base ==4.5.*, web2hs-lib ==0.1.*
   c-sources:           dvitype.c
+  extensions:          ForeignFunctionInterface
 
 executable web2hs-pooltype
   main-is:             Pooltype.hs
   build-depends:       base ==4.5.*, web2hs-lib ==0.1.*
   c-sources:           pooltype.c
+  extensions:          ForeignFunctionInterface
