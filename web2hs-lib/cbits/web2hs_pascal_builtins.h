@@ -27,5 +27,6 @@ extern int pascal_peekc(FILE *f);
 // move to the end of the file.
 extern void pascal_setpos(FILE *f, int p);
 
-
 extern int pascal_curpos(FILE *f);
+
+extern void web2hs_find_cached(char *in, int inLen, char* out, int outLen);

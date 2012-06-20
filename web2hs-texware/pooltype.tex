@@ -1,0 +1,556 @@
+\input webmac
+% This program by D. E. Knuth is not copyrighted and can be used freely.
+% Version 1 was implemented in June 1982.
+% Slight changes were made in October, 1982, for version 0.6 of TeX.
+% Version 2 (July 1983) is consistent with TeX version 0.999.
+% Version 3 (September 1989) is consistent with 8-bit TeX.
+
+% Here is TeX material that gets inserted after \input webmac
+\def\hang{\hangindent 3em\indent\ignorespaces}
+\font\ninerm=cmr9
+\let\mc=\ninerm % medium caps for names like SAIL
+\def\PASCAL{Pascal}
+
+\def\(#1){} % this is used to make section names sort themselves better
+\def\9#1{} % this is used for sort keys in the index
+
+\def\title{POOL\lowercase{type}}
+\def\contentspagenumber{101}
+\def\topofcontents{\null
+  \def\titlepage{F} % include headline on the contents page
+  \def\rheader{\mainfont\hfil \contentspagenumber}
+  \vfill
+  \centerline{\titlefont The {\ttitlefont POOLtype} processor}
+  \vskip 15pt
+  \centerline{(Version 3, September 1989)}
+  \vfill}
+\def\botofcontents{\vfill
+  \centerline{\hsize 5in\baselineskip9pt
+    \vbox{\ninerm\noindent
+    The preparation of this report
+    was supported in part by the National Science
+    Foundation under grants IST-8201926 and MCS-8300984,
+    and by the System Development Foundation. `\TeX' is a
+    trademark of the American Mathematical Society.}}}
+\pageno=\contentspagenumber \advance\pageno by 1
+
+
+\N1.  Introduction.
+The \.{POOLtype} utility program converts string pool files output
+by \.{TANGLE} into a slightly more symbolic format that may be useful
+when \.{TANGLE}d programs are being debugged.
+
+It's a pretty trivial routine, but people may want to try transporting
+this program before they get up enough courage to tackle \TeX\ itself.
+The first 256 strings are treated as \TeX\ treats them, using routines
+copied from \TeX82.
+
+\fi
+
+\M2. \.{POOLtype} is written entirely in standard \PASCAL, except that it has
+to do some slightly system-dependent character code conversion on input
+and output. The input is read from \\{pool\_file}, and the output is written
+on \\{output}. If the input is erroneous, the \\{output} file will describe
+the error.
+
+\Y\P\4\&{program}\1\  \37$\\{POOLtype}(\\{pool\_file},\39\\{output})$;\6
+\4\&{label} \379999;\C{this labels the end of the program}\6
+\4\&{type} \37\X5:Types in the outer block\X\6
+\4\&{var} \37\X7:Globals in the outer block\X\6
+\4\&{procedure}\1\  \37\\{initialize};\C{this procedure gets things started
+properly}\6
+\4\&{var} \37\X6:Local variables for initialization\X\2\6
+\&{begin} \37\X8:Set initial values of key variables\X\6
+\&{end};\par
+\fi
+
+\M3. Here are some macros for common programming idioms.
+
+\Y\P\D \37$\\{incr}(\#)\S\#\K\#+1$\C{increase a variable by unity}\par
+\P\D \37$\\{decr}(\#)\S\#\K\#-1$\C{decrease a variable by unity}\par
+\P\D \37$\\{do\_nothing}\S$\C{empty statement}\par
+\fi
+
+\N4.  The character set.
+(The following material is copied verbatim from \TeX82.
+Thus, the same system-dependent changes should be made to both programs.)
+
+In order to make \TeX\ readily portable between a wide variety of
+computers, all of its input text is converted to an internal eight-bit
+code that includes standard ASCII, the ``American Standard Code for
+Information Interchange.''  This conversion is done immediately when each
+character is read in. Conversely, characters are converted from ASCII to
+the user's external representation just before they are output to a
+text file.
+
+Such an internal code is relevant to users of \TeX\ primarily because it
+governs the positions of characters in the fonts. For example, the
+character `\.A' has ASCII code $65=\O{101}$, and when \TeX\ typesets
+this letter it specifies character number 65 in the current font.
+If that font actually has `\.A' in a different position, \TeX\ doesn't
+know what the real position is; the program that does the actual printing from
+\TeX's device-independent files is responsible for converting from ASCII to
+a particular font encoding.
+
+\TeX's internal code is relevant also with respect to constants
+that begin with a reverse apostrophe; and it provides an index to the
+\.{\\catcode}, \.{\\mathcode}, \.{\\uccode}, \.{\\lccode}, and \.{\\delcode}
+tables.
+
+\fi
+
+\M5. Characters of text that have been converted to \TeX's internal form
+are said to be of type \\{ASCII\_code}, which is a subrange of the integers.
+
+\Y\P$\4\X5:Types in the outer block\X\S$\6
+$\\{ASCII\_code}=0\to255$;\C{eight-bit numbers}\par
+\U2.\fi
+
+\M6. The original \PASCAL\ compiler was designed in the late 60s, when six-bit
+character sets were common, so it did not make provision for lowercase
+letters. Nowadays, of course, we need to deal with both capital and small
+letters in a convenient way, especially in a program for typesetting;
+so the present specification of \TeX\ has been written under the assumption
+that the \PASCAL\ compiler and run-time system permit the use of text files
+with more than 64 distinguishable characters. More precisely, we assume that
+the character set contains at least the letters and symbols associated
+with ASCII codes \O{40} through \O{176}; all of these characters are now
+available on most computer terminals.
+
+Since we are dealing with more characters than were present in the first
+\PASCAL\ compilers, we have to decide what to call the associated data
+type. Some \PASCAL s use the original name \\{char} for the
+characters in text files, even though there now are more than 64 such
+characters, while other \PASCAL s consider \\{char} to be a 64-element
+subrange of a larger data type that has some other name.
+
+In order to accommodate this difference, we shall use the name \\{text\_char}
+to stand for the data type of the characters that are converted to and
+from \\{ASCII\_code} when they are input and output. We shall also assume
+that \\{text\_char} consists of the elements $\\{chr}(\\{first\_text\_char})$
+through
+$\\{chr}(\\{last\_text\_char})$, inclusive. The following definitions should be
+adjusted if necessary.
+
+\Y\P\D \37$\\{text\_char}\S\\{char}$\C{the data type of characters in text
+files}\par
+\P\D \37$\\{first\_text\_char}=0$\C{ordinal number of the smallest element of %
+\\{text\_char}}\par
+\P\D \37$\\{last\_text\_char}=255$\C{ordinal number of the largest element of %
+\\{text\_char}}\par
+\Y\P$\4\X6:Local variables for initialization\X\S$\6
+\4\|i: \37\\{integer};\par
+\U2.\fi
+
+\M7. The \TeX\ processor converts between ASCII code and
+the user's external character set by means of arrays \\{xord} and \\{xchr}
+that are analogous to \PASCAL's \\{ord} and \\{chr} functions.
+
+\Y\P$\4\X7:Globals in the outer block\X\S$\6
+\4\\{xord}: \37\&{array} $[\\{text\_char}]$ \1\&{of}\5
+\\{ASCII\_code};\C{specifies conversion of input characters}\2\6
+\4\\{xchr}: \37\&{array} $[\\{ASCII\_code}]$ \1\&{of}\5
+\\{text\_char};\C{specifies conversion of output characters}\2\par
+\As12, 13\ETs18.
+\U2.\fi
+
+\M8. Since we are assuming that our \PASCAL\ system is able to read and
+write the visible characters of standard ASCII (although not
+necessarily using the ASCII codes to represent them), the following
+assignment statements initialize the standard part of the \\{xchr} array
+properly, without needing any system-dependent changes. On the other
+hand, it is possible to implement \TeX\ with less complete character
+sets, and in such cases it will be necessary to change something here.
+
+\Y\P$\4\X8:Set initial values of key variables\X\S$\6
+$\\{xchr}[\O{40}]\K\.{\'\ \'}$;\5
+$\\{xchr}[\O{41}]\K\.{\'!\'}$;\5
+$\\{xchr}[\O{42}]\K\.{\'"\'}$;\5
+$\\{xchr}[\O{43}]\K\.{\'\#\'}$;\5
+$\\{xchr}[\O{44}]\K\.{\'\$\'}$;\5
+$\\{xchr}[\O{45}]\K\.{\'\%\'}$;\5
+$\\{xchr}[\O{46}]\K\.{\'\&\'}$;\5
+$\\{xchr}[\O{47}]\K\.{\'\'}\.{\'\'}$;\6
+$\\{xchr}[\O{50}]\K\.{\'(\'}$;\5
+$\\{xchr}[\O{51}]\K\.{\')\'}$;\5
+$\\{xchr}[\O{52}]\K\.{\'*\'}$;\5
+$\\{xchr}[\O{53}]\K\.{\'+\'}$;\5
+$\\{xchr}[\O{54}]\K\.{\',\'}$;\5
+$\\{xchr}[\O{55}]\K\.{\'-\'}$;\5
+$\\{xchr}[\O{56}]\K\.{\'.\'}$;\5
+$\\{xchr}[\O{57}]\K\.{\'/\'}$;\6
+$\\{xchr}[\O{60}]\K\.{\'0\'}$;\5
+$\\{xchr}[\O{61}]\K\.{\'1\'}$;\5
+$\\{xchr}[\O{62}]\K\.{\'2\'}$;\5
+$\\{xchr}[\O{63}]\K\.{\'3\'}$;\5
+$\\{xchr}[\O{64}]\K\.{\'4\'}$;\5
+$\\{xchr}[\O{65}]\K\.{\'5\'}$;\5
+$\\{xchr}[\O{66}]\K\.{\'6\'}$;\5
+$\\{xchr}[\O{67}]\K\.{\'7\'}$;\6
+$\\{xchr}[\O{70}]\K\.{\'8\'}$;\5
+$\\{xchr}[\O{71}]\K\.{\'9\'}$;\5
+$\\{xchr}[\O{72}]\K\.{\':\'}$;\5
+$\\{xchr}[\O{73}]\K\.{\';\'}$;\5
+$\\{xchr}[\O{74}]\K\.{\'<\'}$;\5
+$\\{xchr}[\O{75}]\K\.{\'=\'}$;\5
+$\\{xchr}[\O{76}]\K\.{\'>\'}$;\5
+$\\{xchr}[\O{77}]\K\.{\'?\'}$;\6
+$\\{xchr}[\O{100}]\K\.{\'@\'}$;\5
+$\\{xchr}[\O{101}]\K\.{\'A\'}$;\5
+$\\{xchr}[\O{102}]\K\.{\'B\'}$;\5
+$\\{xchr}[\O{103}]\K\.{\'C\'}$;\5
+$\\{xchr}[\O{104}]\K\.{\'D\'}$;\5
+$\\{xchr}[\O{105}]\K\.{\'E\'}$;\5
+$\\{xchr}[\O{106}]\K\.{\'F\'}$;\5
+$\\{xchr}[\O{107}]\K\.{\'G\'}$;\6
+$\\{xchr}[\O{110}]\K\.{\'H\'}$;\5
+$\\{xchr}[\O{111}]\K\.{\'I\'}$;\5
+$\\{xchr}[\O{112}]\K\.{\'J\'}$;\5
+$\\{xchr}[\O{113}]\K\.{\'K\'}$;\5
+$\\{xchr}[\O{114}]\K\.{\'L\'}$;\5
+$\\{xchr}[\O{115}]\K\.{\'M\'}$;\5
+$\\{xchr}[\O{116}]\K\.{\'N\'}$;\5
+$\\{xchr}[\O{117}]\K\.{\'O\'}$;\6
+$\\{xchr}[\O{120}]\K\.{\'P\'}$;\5
+$\\{xchr}[\O{121}]\K\.{\'Q\'}$;\5
+$\\{xchr}[\O{122}]\K\.{\'R\'}$;\5
+$\\{xchr}[\O{123}]\K\.{\'S\'}$;\5
+$\\{xchr}[\O{124}]\K\.{\'T\'}$;\5
+$\\{xchr}[\O{125}]\K\.{\'U\'}$;\5
+$\\{xchr}[\O{126}]\K\.{\'V\'}$;\5
+$\\{xchr}[\O{127}]\K\.{\'W\'}$;\6
+$\\{xchr}[\O{130}]\K\.{\'X\'}$;\5
+$\\{xchr}[\O{131}]\K\.{\'Y\'}$;\5
+$\\{xchr}[\O{132}]\K\.{\'Z\'}$;\5
+$\\{xchr}[\O{133}]\K\.{\'[\'}$;\5
+$\\{xchr}[\O{134}]\K\.{\'\\\'}$;\5
+$\\{xchr}[\O{135}]\K\.{\']\'}$;\5
+$\\{xchr}[\O{136}]\K\.{\'\^\'}$;\5
+$\\{xchr}[\O{137}]\K\.{\'\_\'}$;\6
+$\\{xchr}[\O{140}]\K\.{\'\`\'}$;\5
+$\\{xchr}[\O{141}]\K\.{\'a\'}$;\5
+$\\{xchr}[\O{142}]\K\.{\'b\'}$;\5
+$\\{xchr}[\O{143}]\K\.{\'c\'}$;\5
+$\\{xchr}[\O{144}]\K\.{\'d\'}$;\5
+$\\{xchr}[\O{145}]\K\.{\'e\'}$;\5
+$\\{xchr}[\O{146}]\K\.{\'f\'}$;\5
+$\\{xchr}[\O{147}]\K\.{\'g\'}$;\6
+$\\{xchr}[\O{150}]\K\.{\'h\'}$;\5
+$\\{xchr}[\O{151}]\K\.{\'i\'}$;\5
+$\\{xchr}[\O{152}]\K\.{\'j\'}$;\5
+$\\{xchr}[\O{153}]\K\.{\'k\'}$;\5
+$\\{xchr}[\O{154}]\K\.{\'l\'}$;\5
+$\\{xchr}[\O{155}]\K\.{\'m\'}$;\5
+$\\{xchr}[\O{156}]\K\.{\'n\'}$;\5
+$\\{xchr}[\O{157}]\K\.{\'o\'}$;\6
+$\\{xchr}[\O{160}]\K\.{\'p\'}$;\5
+$\\{xchr}[\O{161}]\K\.{\'q\'}$;\5
+$\\{xchr}[\O{162}]\K\.{\'r\'}$;\5
+$\\{xchr}[\O{163}]\K\.{\'s\'}$;\5
+$\\{xchr}[\O{164}]\K\.{\'t\'}$;\5
+$\\{xchr}[\O{165}]\K\.{\'u\'}$;\5
+$\\{xchr}[\O{166}]\K\.{\'v\'}$;\5
+$\\{xchr}[\O{167}]\K\.{\'w\'}$;\6
+$\\{xchr}[\O{170}]\K\.{\'x\'}$;\5
+$\\{xchr}[\O{171}]\K\.{\'y\'}$;\5
+$\\{xchr}[\O{172}]\K\.{\'z\'}$;\5
+$\\{xchr}[\O{173}]\K\.{\'\{\'}$;\5
+$\\{xchr}[\O{174}]\K\.{\'|\'}$;\5
+$\\{xchr}[\O{175}]\K\.{\'\}\'}$;\5
+$\\{xchr}[\O{176}]\K\.{\'\~\'}$;\par
+\As10, 11\ETs14.
+\U2.\fi
+
+\M9. Some of the ASCII codes without visible characters have been given
+symbolic
+names in this program because they are used with a special meaning.
+
+\Y\P\D \37$\\{null\_code}=\O{0}$\C{ASCII code that might disappear}\par
+\P\D \37$\\{carriage\_return}=\O{15}$\C{ASCII code used at end of line}\par
+\P\D \37$\\{invalid\_code}=\O{177}$\C{ASCII code that many systems prohibit in
+text files}\par
+\fi
+
+\M10. The ASCII code is ``standard'' only to a certain extent, since many
+computer installations have found it advantageous to have ready access
+to more than 94 printing characters. Appendix~C of {\sl The \TeX book\/}
+gives a complete specification of the intended correspondence between
+characters and \TeX's internal representation.
+
+If \TeX\ is being used
+on a garden-variety \PASCAL\ for which only standard ASCII
+codes will appear in the input and output files, it doesn't really matter
+what codes are specified in $\\{xchr}[0\to\O{37}]$, but the safest policy is to
+blank everything out by using the code shown below.
+
+However, other settings of \\{xchr} will make \TeX\ more friendly on
+computers that have an extended character set, so that users can type things
+like `\.^^Z' instead of `\.{\\ne}'. People with extended character sets can
+assign codes arbitrarily, giving an \\{xchr} equivalent to whatever
+characters the users of \TeX\ are allowed to have in their input files.
+It is best to make the codes correspond to the intended interpretations as
+shown in Appendix~C whenever possible; but this is not necessary. For
+example, in countries with an alphabet of more than 26 letters, it is
+usually best to map the additional letters into codes less than~\O{40}.
+To get the most ``permissive'' character set, change \.{\'\ \'} on the
+right of these assignment statements to $\\{chr}(\|i)$.
+
+\Y\P$\4\X8:Set initial values of key variables\X\mathrel{+}\S$\6
+\&{for} $\|i\K0\mathrel{\&{to}}\O{37}$ \1\&{do}\5
+$\\{xchr}[\|i]\K\.{\'\ \'}$;\2\6
+\&{for} $\|i\K\O{177}\mathrel{\&{to}}\O{377}$ \1\&{do}\5
+$\\{xchr}[\|i]\K\.{\'\ \'}$;\2\par
+\fi
+
+\M11. The following system-independent code makes the \\{xord} array contain a
+suitable inverse to the information in \\{xchr}. Note that if $\\{xchr}[\|i]=%
+\\{xchr}[\|j]$
+where $\|i<\|j<\O{177}$, the value of $\\{xord}[\\{xchr}[\|i]]$ will turn out
+to be
+\|j or more; hence, standard ASCII code numbers will be used instead of
+codes below \O{40} in case there is a coincidence.
+
+\Y\P$\4\X8:Set initial values of key variables\X\mathrel{+}\S$\6
+\&{for} $\|i\K\\{first\_text\_char}\mathrel{\&{to}}\\{last\_text\_char}$ \1%
+\&{do}\5
+$\\{xord}[\\{chr}(\|i)]\K\\{invalid\_code}$;\2\6
+\&{for} $\|i\K\O{200}\mathrel{\&{to}}\O{377}$ \1\&{do}\5
+$\\{xord}[\\{xchr}[\|i]]\K\|i$;\2\6
+\&{for} $\|i\K0\mathrel{\&{to}}\O{176}$ \1\&{do}\5
+$\\{xord}[\\{xchr}[\|i]]\K\|i$;\2\par
+\fi
+
+\N12.  String handling.
+(The following material is copied from the \\{get\_strings\_started} procedure
+of \TeX82, with slight changes.)
+
+\Y\P$\4\X7:Globals in the outer block\X\mathrel{+}\S$\6
+\4$\|k,\39\|l$: \37$0\to255$;\C{small indices or counters}\6
+\4$\|m,\39\|n$: \37\\{text\_char};\C{characters input from \\{pool\_file}}\6
+\4\|s: \37\\{integer};\C{number of strings treated so far}\par
+\fi
+
+\M13. The global variable \\{count} keeps track of the total number of
+characters
+in strings.
+
+\Y\P$\4\X7:Globals in the outer block\X\mathrel{+}\S$\6
+\4\\{count}: \37\\{integer};\C{how long the string pool is, so far}\par
+\fi
+
+\M14. \P$\X8:Set initial values of key variables\X\mathrel{+}\S$\6
+$\\{count}\K0$;\par
+\fi
+
+\M15. This is the main program, where \.{POOLtype} starts and ends.
+
+\Y\P\D \37$\\{abort}(\#)\S$\1\6
+\&{begin} \37$\\{write\_ln}(\#)$;\5
+\&{goto} \379999;\6
+\&{end}\2\par
+\Y\P\&{begin} \37\\{initialize};\6
+\X16:Make the first 256 strings\X;\6
+$\|s\K256$;\6
+\X19:Read the other strings from the \.{POOL} file, or give an error message
+and abort\X;\6
+$\\{write\_ln}(\.{\'(\'},\39\\{count}:1,\39\.{\'\ characters\ in\ all.)\'})$;\6
+\49999: \37\&{end}.\par
+\fi
+
+\M16. \P\D \37$\\{lc\_hex}(\#)\S\|l\K\#$;\6
+\&{if} $\|l<10$ \1\&{then}\5
+$\|l\K\|l+\.{"0"}$\ \&{else} $\|l\K\|l-10+\.{"a"}$\2\par
+\Y\P$\4\X16:Make the first 256 strings\X\S$\6
+\&{for} $\|k\K0\mathrel{\&{to}}255$ \1\&{do}\6
+\&{begin} \37$\\{write}(\|k:3,\39\.{\':\ "\'})$;\5
+$\|l\K\|k$;\6
+\&{if} $(\X17:Character \|k cannot be printed\X)$ \1\&{then}\6
+\&{begin} \37$\\{write}(\\{xchr}[\.{"\^"}],\39\\{xchr}[\.{"\^"}])$;\6
+\&{if} $\|k<\O{100}$ \1\&{then}\5
+$\|l\K\|k+\O{100}$\6
+\4\&{else} \&{if} $\|k<\O{200}$ \1\&{then}\5
+$\|l\K\|k-\O{100}$\6
+\4\&{else} \&{begin} \37$\\{lc\_hex}(\|k\mathbin{\&{div}}16)$;\5
+$\\{write}(\\{xchr}[\|l])$;\5
+$\\{lc\_hex}(\|k\mathbin{\&{mod}}16)$;\5
+$\\{incr}(\\{count})$;\6
+\&{end};\2\2\6
+$\\{count}\K\\{count}+2$;\6
+\&{end};\2\6
+\&{if} $\|l=\.{""}\.{""}$ \1\&{then}\5
+$\\{write}(\\{xchr}[\|l],\39\\{xchr}[\|l])$\6
+\4\&{else} $\\{write}(\\{xchr}[\|l])$;\2\6
+$\\{incr}(\\{count})$;\5
+$\\{write\_ln}(\.{\'"\'})$;\6
+\&{end}\2\par
+\U15.\fi
+
+\M17. The first 128 strings will contain 95 standard ASCII characters, and the
+other 33 characters will be printed in three-symbol form like `\.{\^\^A}'
+unless a system-dependent change is made here. Installations that have
+an extended character set, where for example $\\{xchr}[\O{32}]=\hbox{\.{\'^^Z%
+\'}}$,
+would like string \O{32} to be the single character \O{32} instead of the
+three characters \O{136}, \O{136}, \O{132} (\.{\^\^Z}). On the other hand,
+even people with an extended character set will want to represent string
+\O{15} by \.{\^\^M}, since \O{15} is \\{carriage\_return}; the idea is to
+produce visible strings instead of tabs or line-feeds or carriage-returns
+or bell-rings or characters that are treated anomalously in text files.
+
+Unprintable characters of codes 128--255 are, similarly, rendered
+\.{\^\^80}--\.{\^\^ff}.
+
+The boolean expression defined here should be \\{true} unless \TeX\
+internal code number~\|k corresponds to a non-troublesome visible
+symbol in the local character set.  An appropriate formula for the
+extended character set recommended in {\sl The \TeX book\/} would, for
+example, be `$\|k\in[0,\O{10}\to\O{12},\O{14},\O{15},\O{33},\O{177}\to%
+\O{377}]$'.
+If character \|k cannot be printed, and $\|k<\O{200}$, then character $\|k+%
+\O{100}$ or
+$\|k-\O{100}$ must be printable; moreover, ASCII codes $[\O{41}\to\O{46},\O{60}%
+\to\O{71},\O{141}\to\O{146},\O{160}\to\O{171}]$ must be printable.
+Thus, at least 80 printable characters are needed.
+
+\Y\P$\4\X17:Character \|k cannot be printed\X\S$\6
+$(\|k<\.{"\ "})\V(\|k>\.{"\~"})$\par
+\U16.\fi
+
+\M18. When the \.{WEB} system program called \.{TANGLE} processes a source
+file,
+it outputs a \PASCAL\ program and also a string pool file. The present
+program reads the latter file, where each string appears as a two-digit decimal
+length followed by the string itself, and the information is output with its
+associated index number. The strings are surrounded by double-quote marks;
+double-quotes in the string itself are repeated.
+
+\Y\P$\4\X7:Globals in the outer block\X\mathrel{+}\S$\6
+\4\\{pool\_file}: \37\&{packed} \37\&{file} \1\&{of}\5
+\\{text\_char};\C{the string-pool file output by \.{TANGLE}}\2\6
+\4\\{xsum}: \37\\{boolean};\C{has the check sum been found?}\par
+\fi
+
+\M19. \P$\X19:Read the other strings from the \.{POOL} file, or give an error
+message and abort\X\S$\6
+$\\{reset}(\\{pool\_file})$;\5
+$\\{xsum}\K\\{false}$;\6
+\&{if} $\\{eof}(\\{pool\_file})$ \1\&{then}\5
+$\\{abort}(\.{\'!\ I\ can\'}\.{\'t\ read\ the\ POOL\ file.\'})$;\2\6
+\1\&{repeat} \37\X20:Read one string, but abort if there are problems\X;\6
+\4\&{until}\5
+\\{xsum};\2\6
+\&{if} $\R\\{eof}(\\{pool\_file})$ \1\&{then}\5
+$\\{abort}(\.{\'!\ There\'}\.{\'s\ junk\ after\ the\ check\ sum\'})$\2\par
+\U15.\fi
+
+\M20. \P$\X20:Read one string, but abort if there are problems\X\S$\6
+\&{if} $\\{eof}(\\{pool\_file})$ \1\&{then}\5
+$\\{abort}(\.{\'!\ POOL\ file\ contained\ no\ check\ sum\'})$;\2\6
+$\\{read}(\\{pool\_file},\39\|m,\39\|n)$;\C{read two digits of string length}\6
+\&{if} $\|m\I\.{\'*\'}$ \1\&{then}\6
+\&{begin} \37\&{if} $(\\{xord}[\|m]<\.{"0"})\V(\\{xord}[\|m]>\.{"9"})\V(%
+\\{xord}[\|n]<\.{"0"})\V(\\{xord}[\|n]>\.{"9"})$ \1\&{then}\5
+$\\{abort}(\.{\'!\ POOL\ line\ doesn\'}\.{\'t\ begin\ with\ two\ digits\'})$;\2%
+\6
+$\|l\K\\{xord}[\|m]\ast10+\\{xord}[\|n]-\.{"0"}\ast11$;\C{compute the length}\6
+$\\{write}(\|s:3,\39\.{\':\ "\'})$;\5
+$\\{count}\K\\{count}+\|l$;\6
+\&{for} $\|k\K1\mathrel{\&{to}}\|l$ \1\&{do}\6
+\&{begin} \37\&{if} $\\{eoln}(\\{pool\_file})$ \1\&{then}\6
+\&{begin} \37$\\{write\_ln}(\.{\'"\'})$;\5
+$\\{abort}(\.{\'!\ That\ POOL\ line\ was\ too\ short\'})$;\6
+\&{end};\2\6
+$\\{read}(\\{pool\_file},\39\|m)$;\5
+$\\{write}(\\{xchr}[\\{xord}[\|m]])$;\6
+\&{if} $\\{xord}[\|m]=\.{""}\.{""}$ \1\&{then}\5
+$\\{write}(\\{xchr}[\.{""}\.{""}])$;\2\6
+\&{end};\2\6
+$\\{write\_ln}(\.{\'"\'})$;\5
+$\\{incr}(\|s)$;\6
+\&{end}\6
+\4\&{else} $\\{xsum}\K\\{true}$;\2\6
+$\\{read\_ln}(\\{pool\_file})$\par
+\U19.\fi
+
+\N21.  System-dependent changes.
+This section should be replaced, if necessary, by changes to the program
+that are necessary to make \.{POOLtype} work at a particular installation.
+It is usually best to design your change file so that all changes to
+previous sections preserve the section numbering; then everybody's version
+will be consistent with the printed program. More extensive changes,
+which introduce new sections, can be inserted here; then only the index
+itself will get a new section number.
+
+\fi
+
+\N22.  Index.
+Indications of system dependencies appear here together with the section
+numbers
+where each ident\-i\-fier is used.
+\fi
+
+
+\inx
+\:\\{abort}, \[15], 19, 20.
+\:{ASCII code}, 4.
+\:\\{ASCII\_code}, \[5], 6, 7.
+\:\\{boolean}, 18.
+\:\\{carriage\_return}, \[9], 17.
+\:\\{char}, 6.
+\:{character set dependencies}, 10, 17.
+\:\\{chr}, 6, 7, 10, 11.
+\:\\{count}, \[13], 14, 15, 16, 20.
+\:\\{decr}, \[3].
+\:\\{do\_nothing}, \[3].
+\:\\{eof}, 19, 20.
+\:\\{eoln}, 20.
+\:\\{false}, 19.
+\:\\{first\_text\_char}, \[6], 11.
+\:\|{i}, \[6].
+\:\\{incr}, \[3], 16, 20.
+\:\\{initialize}, \[2], 15.
+\:\\{integer}, 6, 12, 13.
+\:\\{invalid\_code}, \[9], 11.
+\:\|{k}, \[12].
+\:\|{l}, \[12].
+\:\\{last\_text\_char}, \[6], 11.
+\:\\{lc\_hex}, \[16].
+\:\|{m}, \[12].
+\:\|{n}, \[12].
+\:\\{null\_code}, \[9].
+\:\\{ord}, 7.
+\:\\{output}, \[2].
+\:\\{pool\_file}, \[2], 12, \[18], 19, 20.
+\:\\{POOLtype}, \[2].
+\:\\{read}, 20.
+\:\\{read\_ln}, 20.
+\:\\{reset}, 19.
+\:\|{s}, \[12].
+\:{system dependencies}, 2, 6, 8, 10, 17, 21.
+\:\9{TeXbook}{\sl The \TeX book}, 10, 17.
+\:\\{text\_char}, \[6], 7, 12, 18.
+\:\\{true}, 17, 20.
+\:\\{write}, 16, 20.
+\:\\{write\_ln}, 15, 16, 20.
+\:\\{xchr}, \[7], 8, 10, 11, 16, 17, 20.
+\:\\{xord}, \[7], 11, 20.
+\:\\{xsum}, \[18], 19, 20.
+\fin
+\:\X17:Character \|k cannot be printed\X
+\U16.
+\:\X7, 12, 13, 18:Globals in the outer block\X
+\U2.
+\:\X6:Local variables for initialization\X
+\U2.
+\:\X16:Make the first 256 strings\X
+\U15.
+\:\X20:Read one string, but abort if there are problems\X
+\U19.
+\:\X19:Read the other strings from the \.{POOL} file, or give an error message
+and abort\X
+\U15.
+\:\X8, 10, 11, 14:Set initial values of key variables\X
+\U2.
+\:\X5:Types in the outer block\X
+\U2.
+\con

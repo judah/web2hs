@@ -1,0 +1,22 @@
+name:                web2hs-texware
+version:             0.1.0.0
+-- synopsis:            
+-- description:         
+license:             BSD3
+license-file:        LICENSE
+-- author:              
+maintainer:          Judah Jacobson <judah.jacobson@gmail.com>
+-- copyright:           
+-- category:            
+build-type:          Custom
+cabal-version:       >=1.8
+
+executable web2hs-dvitype
+  main-is:             DVIType.hs
+  build-depends:       base ==4.5.*, web2hs-lib ==0.1.*
+  c-sources:           dvitype.c
+
+executable web2hs-pooltype
+  main-is:             Pooltype.hs
+  build-depends:       base ==4.5.*, web2hs-lib ==0.1.*
+  c-sources:           pooltype.c

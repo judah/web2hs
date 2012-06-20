@@ -7,6 +7,7 @@ import Text.PrettyPrint.HughesPJ
 import Data.Monoid hiding ( (<>) )
 import Numeric
 import Data.Maybe (catMaybes, isNothing)
+import Data.List ((\\))
 
 -- TODO: elim extraneous parens
 
@@ -76,7 +77,7 @@ generateProgram Program {progBlock = Block{..},..} = let
     head = pretty "void" <+> pretty progName 
             <> parens (commaList [text "char *" <> progArgVar p | p <- progArgs])
     jmpLabels = blockLabels
-    body = programStatements jmpLabels blockStatements
+    body = programStatements [] blockStatements -- any jumps would be local
     in headerIncludes
         $$ mapSemis declareConstant blockConstants
         $$ mapSemis declareRecordType [(n,fs) | (n,RecordType {recordFields=fs})
@@ -126,6 +127,22 @@ declareVar (v,t) = cType t (pretty v)
 declareRecordType (n,fs) = text "typedef" <+> cType (RecordType Nothing fs)
                                                 (pretty n)
 
+{- The goal is for both the main program and other subfunctions
+to be able to jump into arbitrary parts of the main program.
+To do this, we translate
+
+    ...; lab: s; ...
+
+into:
+
+    if (0==setjmp(..)) {
+        ...
+    }
+    lab: s;
+    ...
+
+Then, in the main program we call "goto lab" and in other functions we call setjmp.
+-}
 programStatements :: [Label] -> [Statement Scoped] -> Doc
 programStatements jmpLabels ss = loop (reverse ss)
   where
@@ -133,7 +150,9 @@ programStatements jmpLabels ss = loop (reverse ss)
     loop ((Nothing,s):ss)
         = loop ss $$ generateStatementBase jmpLabels s <> semi
     loop ((Just l,s):ss)
-        = braceBlock (jmpTest l) (loop ((Nothing,s):ss))
+        = braceBlock (jmpTest l) (loop ss)
+            $$ hang (labelID l <> colon) 2
+                (generateStatementBase jmpLabels s <> semi)
     jmpTest l = text "if (0==setjmp(" <> labelBuf l <> text "))"
 
 generateFunction :: [Label] -> FunctionDecl Scoped Ordinal -> Doc
@@ -149,7 +168,11 @@ generateFunction jmpLabels FuncDecl {funcBlock=Block{..},..}
     | otherwise = braceBlock (generateFuncHeading funcName funcHeading)
         $ mapSemis declareVar blockVars
         $$ (wrapFuncRet funcName 
-            $ vcat (map (generateStatement jmpLabels) blockStatements))
+            $ vcat (map (generateStatement 
+                            -- local labels shouldn't jump out of
+                            -- this function
+                            (jmpLabels \\ blockLabels))
+                        blockStatements))
 
 
 wrapFuncRet :: Func -> Doc -> Doc
@@ -369,11 +392,14 @@ generateBuiltin "cur_pos" [f] = pretty "pascal_curpos" <> paramList [f]
 -- The WEB break function 
 generateBuiltin "break" [e] = empty
 generateBuiltin "page" [] = empty -- used only in primes.web
+generateBuiltin "web2hs_find_cached" es
+    = pretty "web2hs_find_cached" <> paramList (map generateExpr es)
 generateBuiltin f _ = error $ "unknown builtin " ++ show f   
 
 openForRead :: Expr Scoped -> [Expr Scoped] -> Doc
 openForRead f es = pretty f <+> equals <+> case es of
     [] | VarExpr (NameRef v) <- f -> openForRead (progGlobalVar v)
+    [ConstExpr (ConstString "TTY:")] -> text "stdin"
     [e] -> openForRead (generateExpr e)
   where
     openForRead path = text "fopen"
