@@ -4,5 +4,6 @@ Subfolders are:
 - web2hs-lib: runtime support for the output of web2hs.
 - web2hs-tangle-boot: bootstrapping tangle (for converting .web->.p
 - web2hs-web-bin: WEB-related binaries
+- web2hs-texware: tex support programs (dvitype, pooltype)
 
 They should be installed in the above order.
