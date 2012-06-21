@@ -78,6 +78,9 @@ cRecordType fs = text "struct" <+> braces (semilistOneLine $ map cField fs)
   where
     cField (n,t) = cType t (pretty n) 
 
+star :: Doc
+star = text "*"
+
 declareConstant :: (Var,ConstValue) -> Doc
 declareConstant (v,c)
     = text "const" <+> constType c <+> pretty v <+> equals 
@@ -155,9 +158,9 @@ programArgDeclarations v
 
 programArgInitialization :: Var -> Doc
 programArgInitialization v
-    | isRecordVar v = pretty v <+> equals <+> text "*" <> progArgVar v
+    | isRecordVar v = pretty v <+> equals <+> star <> progArgVar v
     | isFileVar v = progGlobalVar v <+> equals <+> progArgVar v
-    | otherwise = pretty v <+> equals <+> progArgVar v
+    | otherwise = star <> pretty v <+> equals <+> progArgVar v
 
 isFileVar :: Var -> Bool
 isFileVar Var {varType = FileType _} = True
@@ -233,12 +236,15 @@ generateFunction jmpLabels FuncDecl {funcBlock=Block{..},..}
     | otherwise = braceBlock (generateFuncHeading funcName funcHeading)
         $ mapSemis declareVar blockVars
         $$ (wrapFuncRet funcName 
+            $ compose (map wrapParam $ funcArgs funcHeading)
             $ vcat (map (generateStatement 
                             -- local labels shouldn't jump out of
                             -- this function
                             (jmpLabels \\ blockLabels))
                         blockStatements))
 
+compose :: [a -> a] -> a -> a
+compose fs x = foldr (.) id fs $ x
 
 wrapFuncRet :: Func -> Doc -> Doc
 wrapFuncRet f@Func {funcVarHeading=FuncHeading {funcReturnType=r}} d
@@ -256,7 +262,21 @@ generateFuncHeading funcName FuncHeading {..} = let
     in ret $ pretty funcName <> args
 
 generateParam :: FuncParam Scoped Ordinal -> Doc
-generateParam FuncParam {..} = declareVar (paramName, paramType)
+generateParam FuncParam {..}
+    | not paramByRef = declareVar (paramName, paramType)
+    | otherwise = cType paramType (star <> paramArg paramName)
+
+wrapParam :: FuncParam Scoped Ordinal -> Doc -> Doc
+wrapParam FuncParam {..} d
+    | not paramByRef = d
+    | otherwise
+        =   declareVar (paramName, paramType) <> semi
+            $$ pretty paramName <+> equals <+> star <> paramArg paramName <> semi
+            $$ d
+            $$ star <> paramArg paramName <+> equals <+> pretty paramName <> semi
+
+paramArg :: Var -> Doc
+paramArg v = pretty v <> pretty "_arg"
 
 generateStatement :: [Label] -> Statement Scoped -> Doc
 generateStatement ls (Nothing, s) = generateStatementBase ls s <> semi
@@ -268,8 +288,7 @@ generateStatementBase :: [Label] -> StatementBase Scoped -> Doc
 generateStatementBase jmpLabels s = case s of
     AssignStmt v e
         -> generateRef v <+> equals <+> generateExpr e
-    ProcedureCall (DefinedFunc f) args
-        -> pretty f <> parens (commaList $ map generateExpr args)
+    ProcedureCall (DefinedFunc f) args -> callFunction f args
     ProcedureCall (BuiltinFunc f) args -> generateBuiltin f args
     IfStmt {..} -> braceBlock (text "if"
                                 <+> parens (generateExpr ifCond))
@@ -328,8 +347,7 @@ generateExpr e = case e of
     ConstExpr c -> generateConstValue c
     VarExpr (DeRef v) -> pretty "pascal_peekc" <> parens (generateRef v)
     VarExpr v -> generateRef v
-    FuncCall (DefinedFunc f) es
-                -> pretty f <> parens (commaList $ map generateExpr es)
+    FuncCall (DefinedFunc f) es -> callFunction f es
     FuncCall (BuiltinFunc f) es -> generateBuiltin f es
     -- TODO: is this right?
     -- Treating Divide as always producing a real output.
@@ -339,6 +357,16 @@ generateExpr e = case e of
                         <> cOp o <> parens (generateExpr y)
     NotOp e -> text "!" <> parens (generateExpr e)
     Negate e -> text "-" <> parens (generateExpr e)
+
+callFunction :: Func -> [Expr Scoped] -> Doc
+callFunction f es = pretty f
+                <> parens (commaList $ zipWith generateParamExpr
+                                                (funcArgs (funcVarHeading f))
+                                                es)
+  where
+    generateParamExpr FuncParam {..} e
+        | paramByRef = text "&" <> parens (generateExpr e)
+        | otherwise = generateExpr e
 
 castFloat :: Doc -> Doc
 castFloat e = text "(float)" <> parens e
