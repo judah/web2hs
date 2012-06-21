@@ -1,3 +1,11 @@
+% [3]
+@x
+@p program DVI_type(@!dvi_file,@!output);
+@y
+@p program DVI_type(@!dvi_file,@!user_options,@!output);
+@z
+
+
 % [5]
 @x
 @!name_length=50; {a file name shouldn't be longer than this}
@@ -16,6 +24,50 @@ begin write_ln; goto final_end;
 end;
 @z
 
+% [8]
+@x
+@!ASCII_code=" ".."~"; {a subrange of the integers}
+@y
+@!ASCII_code=" ".."~"; {a subrange of the integers}
+@!options=record@!out_mode:3..5;
+  @!max_pages:integer;
+  @!resolution:real;
+  @!new_mag:integer;
+  end;
+@z
+
+% [41]
+@x
+@!new_mag:integer; {if positive, overrides the postamble's magnification}
+@y
+@!new_mag:integer; {if positive, overrides the postamble's magnification}
+@!user_options:options;
+@z
+
+@d errors_only=0 {value of |out_mode| when minimal printing occurs}
+%@d terse=1 {value of |out_mode| for abbreviated output}
+%@d mnemonics_only=2 {value of |out_mode| for medium-quantity output}
+%@d verbose=3 {value of |out_mode| for detailed tracing}
+%@d the_works=4 {|verbose|, plus check of postamble if |random_reading|}
+%@y
+%@d errors_only=0 {value of |out_mode| when minimal printing occurs}
+%@d terse=1 {value of |out_mode| for abbreviated output}
+%@d mnemonics_only=2 {value of |out_mode| for medium-quantity output}
+%@d verbose=3 {value of |out_mode| for detailed tracing}
+%@d the_works=4 {|verbose|, plus check of postamble if |random_reading|}
+%
+%@<Types...@>=
+%@!options=record@!
+%  @!out_mode:errors_only..the_works; {controls the amount of output}
+%  @!max_pages:integer; {at most this many |bop..eop| pages will be printed}
+%  @!resolution:real; {pixels per inch}
+%  @!new_mag:integer; {if positive, overrides the postamble's magnification}
+%  end;
+%
+%@z
+%
+
+
 % [47]
 @x
 begin update_terminal; reset(term_in);
@@ -24,12 +76,84 @@ begin update_terminal; reset(term_in,'TTY:');
 @z
 
 
-
 % [50]
 @x
 begin rewrite(term_out); {prepare the terminal for output}
+write_ln(term_out,banner);
 @y
 begin rewrite(term_out,'TTY:'); {prepare the terminal for output}
+@z
+
+% [51]
+@x
+@ @<Determine the desired |out_mode|@>=
+1: write(term_out,'Output level (default=4, ? for help): ');
+out_mode:=the_works; input_ln;
+if buffer[0]<>" " then
+  if (buffer[0]>="0")and(buffer[0]<="4") then out_mode:=buffer[0]-"0"
+  else  begin write(term_out,'Type 4 for complete listing,');
+    write(term_out,' 0 for errors and fonts only,');
+    write_ln(term_out,' 1 or 2 or 3 for something in between.');
+    goto 1;
+    end
+@y
+@ @<Determine the desired |out_mode|@>=
+out_mode:=user_options.out_mode;
+if out_mode < 0 <> out_mode > 4 then out_mode:=4;
+@z
+
+@x
+@ @<Determine the desired |max_pages|@>=
+3: write(term_out,'Maximum number of pages (default=1000000): ');
+max_pages:=1000000; input_ln; buf_ptr:=0;
+if buffer[0]<>" " then
+  begin max_pages:=get_integer;
+  if max_pages<=0 then
+    begin write_ln(term_out,'Please type a positive number.');
+    goto 3;
+    end;
+  end
+@y
+@ @<Determine the desired |max_pages|@>=
+max_pages:=user_options.max_pages;
+if max_pages<=0 then max_pages:=1;
+@z
+
+@x
+@ @<Determine the desired |resolution|@>=
+4: write(term_out,'Assumed device resolution');
+write(term_out,' in pixels per inch (default=300/1): ');
+resolution:=300.0; input_ln; buf_ptr:=0;
+if buffer[0]<>" " then
+  begin k:=get_integer;
+  if (k>0)and(buffer[buf_ptr]="/")and
+    (buffer[buf_ptr+1]>"0")and(buffer[buf_ptr+1]<="9") then
+    begin incr(buf_ptr); resolution:=k/get_integer;
+    end
+  else  begin write(term_out,'Type a ratio of positive integers;');
+    write_ln(term_out,' (1 pixel per mm would be 254/10).');
+    goto 4;
+    end;
+  end
+@y
+@ @<Determine the desired |resolution|@>=
+resolution:=user_options.resolution;
+if resolution<0 then resolution:=300;
+@z
+
+@x
+@ @<Determine the desired |new_mag|@>=
+5: write(term_out,'New magnification (default=0 to keep the old one): ');
+new_mag:=0; input_ln; buf_ptr:=0;
+if buffer[0]<>" " then
+  if (buffer[0]>="0")and(buffer[0]<="9") then new_mag:=get_integer
+  else  begin write(term_out,'Type a positive integer to override ');
+    write_ln(term_out,'the magnification in the DVI file.');
+    goto 5;
+    end
+@y
+@ @<Determine the desired |new_mag|@>=
+new_mag:=user_options.new_mag;
 @z
 
 % [64-65]

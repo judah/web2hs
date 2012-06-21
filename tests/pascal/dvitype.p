@@ -226,13 +226,11 @@ if f=nf then{62:}begin{66:}for k:=1 to name_length do cur_name[k]:=' ';
 if p=0 then begin for k:=1 to 9 do cur_name[k]:=default_directory[k];
 r:=9;end else r:=0;
 for k:=font_name[nf]to font_name[nf+1]-1 do begin r:=r+1;
-if r+4>name_length then begin write(' ',
+if r+5>name_length then begin write(' ',
 'DVItype capacity exceeded (max font name length=',name_length:1,')!');
-jump_out;end;
-if(names[k]>=97)and(names[k]<=122)then cur_name[r]:=xchr[names[k]-32]
-else cur_name[r]:=xchr[names[k]];end;cur_name[r+1]:='.';
-cur_name[r+2]:='T';cur_name[r+3]:='F';cur_name[r+4]:='M'{:66};
-open_tfm_file;
+jump_out;end;cur_name[r]:=xchr[names[k]];end;cur_name[r+1]:='.';
+cur_name[r+2]:='t';cur_name[r+3]:='f';cur_name[r+4]:='m';
+cur_name[r+5]:='\0';{:66};open_tfm_file;
 if eof(tfm_file)then write('---not loaded, TFM file can''t be opened!')
 else begin if(q<=0)or(q>=134217728)then write(
 '---not loaded, bad scale (',q:1,')!')else if(d<=0)or(d>=134217728)then

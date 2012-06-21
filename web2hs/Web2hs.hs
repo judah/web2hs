@@ -48,3 +48,5 @@ main = do
                 Just f -> writeFile f $ render $ pretty transformed
             writeFile outputFile
                 $ render $ generateProgram transformed
+            writeFile (replaceExtension outputFile "h")
+                $ render $ generateHeader transformed

@@ -9,39 +9,54 @@ import Numeric
 import Data.Maybe (catMaybes, isNothing)
 import Data.List ((\\))
 
--- TODO: elim extraneous parens
 
--- TODO: use better types for short ints
-
+------------
 {-
-Type mapping:
-local arrays -> C stack arrays
-global arrays -> dynamically allocated ptr
-strings -> C strings (they're constants)
+This module is concerned with turning parsed/flattend/resolved Pascal code
+into C code that interoperates with web2hs-lib.
 
-ranged values:
-    - uint_8,
-    - int_8
-    - uint_16
-    - int_16
-    - uint_32
-    - int_32
-
-character/byte files:
-
-typedef struct {
-    char nextChar;
-    FILE *file;
-} pascal_text_file;
-
-typedef struct {
-    void *nextElt;
-
-
-
+An overview of how this works:
+- The main "program" is a C function.  Its local variables in Pascal become
+  global variables in C.
+- Other Pascal functions become C functions with the same local variables.
+- jumps within a single function are implemented with C labels and goto.
+- jumps from subfunctions to the main program are implemented with 
+  setjmp/longjmp.
+- Program arguments can be any type (int, record, etc).
+- Special case for record program arguments: we pass them in as pointers
+  to satisfy the Haskell FFI.  For example:
+      program foo(x); var x:record_type...;...;end.
+  becomes something like
+      void foo(record_type *x_progArg) {
+          x = *x_progArg;
+      }
+- Special case for file program arguments: 
+      program foo(x); var x:file of text_char; begin reset(x);end.
+  becomes something like
+      char *x_progGlobal;
+      FILE *x;
+      void foo(char *x_progArg) {
+          x_progGlobal = x_progArg;
+          x = fopen(x_progGlobal,"r");
+      }
+  (We save the argument in a separate global variable so that it's accessible
+  from subfunctions.)
 -}
 
+-------------
+-- Generic utilities
 
+braceBlock :: Doc -> Doc -> Doc
+braceBlock head body = (head <+> text "{") $+$ nest 2 body
+                            $+$ text "}"
+
+mapSemis :: (a -> Doc) -> [a] -> Doc
+mapSemis f xs = vcat $ map (\x -> f x <> semi) xs
+
+----------------
+-- Types
+
+-- Generate a variable declaration, e.g. "int v" or "FILE *x"
 cType :: OrdType -> Doc -> Doc
 cType (BaseType (Ordinal _ _)) v = text "int" <+> v
 cType (BaseType OrdinalChar) v = text "char" <+> v
@@ -58,62 +73,12 @@ cType RecordType { recordFields = FieldList {variantPart=Nothing,..}} v
     = cRecordType fixedPart <+> v
 cType t _ = error ("unknown type: " ++ show t)
 
+cRecordType :: Fields Ordinal -> Doc
 cRecordType fs = text "struct" <+> braces (semilistOneLine $ map cField fs)
   where
     cField (n,t) = cType t (pretty n) 
 
-cRetType :: OrdType -> Doc
-cRetType (BaseType o) = text "int"
-cRetType RealType = text "float"
-cRetType t = error $ "return type not implemented: " ++ show (pretty t)
-
-braceBlock :: Doc -> Doc -> Doc
-braceBlock head body = (head <+> text "{") $+$ nest 2 body
-                            $+$ text "}"
-
-
-generateProgram :: Program Scoped Ordinal -> Doc
-generateProgram Program {progBlock = Block{..},..} = let
-    head = pretty "void" <+> pretty progName 
-            <> parens (commaList [text "char *" <> progArgVar p | p <- progArgs])
-    jmpLabels = blockLabels
-    body = programStatements [] blockStatements -- any jumps would be local
-    in headerIncludes
-        $$ mapSemis declareConstant blockConstants
-        $$ mapSemis declareRecordType [(n,fs) | (n,RecordType {recordFields=fs})
-                                                <- blockTypes]
-        $$ mapSemis declareVar blockVars
-        $$ mapSemis (\p -> text "char *" <> progGlobalVar p) progArgs
-        $$ mapSemis (\l -> text "jmp_buf" <+> labelBuf l) jmpLabels
-        $$ vcat (map (generateFunction jmpLabels) blockFunctions)
-        $$ braceBlock head 
-            (mapSemis (\p -> progGlobalVar p <+> equals <+> progArgVar p) progArgs
-                $$ body)
-
-mapSemis :: (a -> Doc) -> [a] -> Doc
-mapSemis f xs = vcat $ map (\x -> f x <> semi) xs
-
-headerIncludes = text "#include \"web2hs_pascal_builtins.h\""
-                $$ text "#include <setjmp.h>"
-
--- Labels come in two varieties:
--- 1) most goto/labels are local to a single function, and map directly
---    to C labels.
--- 2) Some error-recovery labels are defined in the main program and then
---    other functions goto them.  We need to use setjmp/longjmp for them.
---    This is relatively safe since the main program function
---    doesn't define any local variables.
--- As a result, the statement-generating code passes around a list of labels
--- which should be jumped to via longjmp instead of via goto.
-labelID :: Label -> Doc
-labelID l = text "label_" <> pretty l
-
-labelBuf :: Label -> Doc
-labelBuf l = text "label_" <> pretty l <> text "_buf"
-
-progArgVar v = pretty v <> text "_progArg"
-progGlobalVar v = pretty v <> text "_progGlobal"
-
+declareConstant :: (Var,ConstValue) -> Doc
 declareConstant (v,c)
     = text "const" <+> constType c <+> pretty v <+> equals 
         <+> generateConstValue c
@@ -122,10 +87,109 @@ declareConstant (v,c)
     constType (ConstReal _) = text "float"
     constType (ConstString _) = text "char*"
 
+declareVar :: (Var,Type Ordinal) -> Doc
 declareVar (v,t) = cType t (pretty v)
 
-declareRecordType (n,fs) = text "typedef" <+> cType (RecordType Nothing fs)
-                                                (pretty n)
+declareRecordType :: (Name, FieldList Ordinal) -> Doc
+declareRecordType (n,fs)
+    = text "typedef" 
+        <+> cType (RecordType Nothing fs) (pretty n)
+
+----------------------
+-- Generating the .h file.  This is not directly used by the .c file,
+-- but it may be useful for c2hs or hsc2hs.
+-- 
+-- It provides a declaration of the main program function, along with
+-- any necessary record/struct types.
+
+generateHeader :: Program Scoped Ordinal -> Doc
+generateHeader Program {progBlock = Block {..},..}
+    =  text "#include <stdio.h>" -- for FILE*
+        $$ mapSemis declareRecordType [(n,fs) | (n,RecordType {recordFields=fs})
+                                                <- blockTypes]
+        $$ head <> semi
+  where
+    head = pretty "void" <+> pretty progName 
+            <> parens (commaList [progArgType p (progArgVar p) | p <- progArgs])
+
+---------------------------
+-- Generating the .c file
+
+generateProgram :: Program Scoped Ordinal -> Doc
+generateProgram Program {progBlock = Block{..},..} = let
+    head = pretty "void" <+> pretty progName 
+            <> parens (commaList [progArgType p (progArgVar p) | p <- progArgs])
+    jmpLabels = blockLabels
+    body = programStatements [] blockStatements -- any jumps would be local
+    in cIncludes
+        $$ mapSemis declareConstant blockConstants
+        $$ mapSemis declareRecordType [(n,fs) | (n,RecordType {recordFields=fs})
+                                                <- blockTypes]
+        $$ mapSemis declareVar blockVars
+        $$ mapSemis programArgDeclarations progArgs
+        $$ mapSemis (\l -> text "jmp_buf" <+> labelBuf l) jmpLabels
+        $$ vcat (map (generateFunction jmpLabels) blockFunctions)
+        $$ braceBlock head 
+            (mapSemis programArgInitialization progArgs
+                $$ body)
+
+cIncludes :: Doc
+cIncludes = text "#include \"web2hs_pascal_builtins.h\""
+                $$ text "#include <setjmp.h>"
+
+---------
+-- Program argument initialization
+
+progArgVar, progGlobalVar :: Var -> Doc
+progArgVar v = pretty v <> text "_progArg"
+progGlobalVar v
+    | isFileVar v = pretty v <> text "_progGlobal"
+    | otherwise = error $ "argument doesn't need global copy: "
+                    ++ show (pretty v)
+
+
+programArgDeclarations :: Var -> Doc
+programArgDeclarations v
+    | isFileVar v = progArgType v (progGlobalVar v)
+    | otherwise = empty
+
+programArgInitialization :: Var -> Doc
+programArgInitialization v
+    | isRecordVar v = pretty v <+> equals <+> text "*" <> progArgVar v
+    | isFileVar v = progGlobalVar v <+> equals <+> progArgVar v
+    | otherwise = pretty v <+> equals <+> progArgVar v
+
+isFileVar :: Var -> Bool
+isFileVar Var {varType = FileType _} = True
+isFileVar _ = False
+
+isRecordVar :: Var -> Bool
+isRecordVar Var {varType = RecordType {}} = True
+isRecordVar _ = False
+
+
+progArgType :: Var -> Doc -> Doc
+progArgType v@Var{..} w
+    | isFileVar v  = text "char *" <> w
+    | isRecordVar v = cType varType (pretty "*" <> w)
+    | otherwise = cType varType w
+
+-----------------------------------------------
+-- Labels come in two varieties:
+-- 1) most goto/labels are local to a single function, and map directly
+--    to C labels.
+-- 2) Some error-recovery labels are defined in the main program and then
+--    other functions goto them.  We need to use setjmp/longjmp for them.
+--    This is relatively safe since the main program function
+--    doesn't define any local variables.
+-- To distinguish the two, the statement-generating functions pass around
+-- a list of labels which should be jumped to via longjmp instead of via goto.
+labelID :: Label -> Doc
+labelID l = text "label_" <> pretty l
+
+labelBuf :: Label -> Doc
+labelBuf l = text "label_" <> pretty l <> text "_buf"
+
 
 {- The goal is for both the main program and other subfunctions
 to be able to jump into arbitrary parts of the main program.
@@ -141,7 +205,8 @@ into:
     lab: s;
     ...
 
-Then, in the main program we call "goto lab" and in other functions we call setjmp.
+Then, we turn Pascal gotos in the main program into "goto lab"
+and we turn Pascal gotos in subfunctions into "longjmp(..)".
 -}
 programStatements :: [Label] -> [Statement Scoped] -> Doc
 programStatements jmpLabels ss = loop (reverse ss)
@@ -184,13 +249,13 @@ wrapFuncRet f@Func {funcVarHeading=FuncHeading {funcReturnType=r}} d
                         $$ d
                         $$ text "return" <+> pretty v <> semi
 
--- TODO: params by ref
-
+generateFuncHeading :: Func -> FuncHeading Scoped Ordinal -> Doc
 generateFuncHeading funcName FuncHeading {..} = let
-    ret = maybe (text "void") cRetType funcReturnType
+    ret = maybe (text "void" <+>) cType funcReturnType
     args = parens $ commaList $ map generateParam funcArgs
-    in ret <+> pretty funcName <> args
+    in ret $ pretty funcName <> args
 
+generateParam :: FuncParam Scoped Ordinal -> Doc
 generateParam FuncParam {..} = declareVar (paramName, paramType)
 
 generateStatement :: [Label] -> Statement Scoped -> Doc
@@ -199,6 +264,7 @@ generateStatement ls (Just l, s) = hang (labelID l <> colon) 2
                                     $ generateStatementBase ls s
                                         <> semi
 
+generateStatementBase :: [Label] -> StatementBase Scoped -> Doc
 generateStatementBase jmpLabels s = case s of
     AssignStmt v e
         -> generateRef v <+> equals <+> generateExpr e
@@ -248,6 +314,7 @@ forHead i start end DownTo
         <+> pretty i <> text ">=" <> pretty end <> semi
         <+> pretty i <> text "--"
 
+generateCase :: [Label] -> CaseElt Scoped -> Doc
 generateCase jmpLabels CaseElt {..} = hang cases 2 statements
   where
     cases = vcat $ map (<> colon)
@@ -273,8 +340,10 @@ generateExpr e = case e of
     NotOp e -> text "!" <> parens (generateExpr e)
     Negate e -> text "-" <> parens (generateExpr e)
 
+castFloat :: Doc -> Doc
 castFloat e = text "(float)" <> parens e
 
+generateConstValue :: ConstValue -> Doc
 generateConstValue (ConstInt n) = pretty n
 generateConstValue (ConstString [c]) = text $ show c
 -- quote/escape using the Show Char and Show String instances
@@ -304,6 +373,7 @@ ordAccess o e
     | ordLower o == 0 = e
     | otherwise = parens e <> text "-" <> pretty (ordLower o)
 
+cOp:: BinOp -> Doc
 cOp Plus = text "+"
 cOp Minus = text "-"
 cOp Times = text "*"
@@ -322,15 +392,8 @@ cOp GTEQ = text ">="
 
 --------------------
 
--- TODO: more general
--- For now (TODO I do more now)
--- - either a const string or an integer
--- - no widths
--- - no escaping for strings
-
 generateWrite :: Bool -> [WriteArg Scoped] -> Doc
 generateWrite addNewline writeArgs = case writeArgs of
-    -- TODO: what if record type, or non-byte
     w:ws | FileType t <- inferExprType (writeExpr w)
             , t `elem` map BaseType [IntegralType, CharType]
         -> text "fprintf"
@@ -373,7 +436,7 @@ extractConstInt (VarExpr (NameRef Const {varValue = ConstInt n})) = n
 extractConstInt c = error ("unable to get constant int from expression "
                             ++ show (pretty c))
 
-
+generateBuiltin :: Name -> [Expr Scoped] -> Doc
 generateBuiltin "chr" [e] = generateExpr e
 generateBuiltin "reset" (e:es) = openForRead e es
 generateBuiltin "rewrite" (e:es) = openForWrite e es
@@ -423,7 +486,9 @@ readVars (VarExpr (NameRef f)) es
     | otherwise = semicolonList
                     [ pretty e <> text " = getc" <> paramList [pretty f] | e <- es]
 
+isByteVar :: Expr Scoped -> Bool
 isByteVar (VarExpr (NameRef v)) = varType v `elem` byteTypes
 isByteVar _ = False
 
+byteTypes :: [Type Ordinal]
 byteTypes = map BaseType [Ordinal 0 255, OrdinalChar]
