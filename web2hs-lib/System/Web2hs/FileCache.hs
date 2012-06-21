@@ -5,11 +5,13 @@ module System.Web2hs.FileCache(
                 locatedFilePath,
                 readLSR,
                 withFileCache,
+                getUserFileCache,
                 ) where
 
 import Data.HashMap.Strict as HashMap
 import Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as L
+import qualified Data.List as List
 import Control.Exception (bracket,evaluate)
 import System.FilePath
 import Data.IORef
@@ -18,6 +20,7 @@ import Foreign.C
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Array (copyArray)
+import System.Directory (getHomeDirectory)
 
 -- Maps the name of a file to a (relative) path to the folder where it's located
 type FileCache = HashMap ByteString LocatedFile
@@ -56,6 +59,15 @@ parseLines parent = loop (B.pack ".") -- arbitrary default
                                 , locatedBasename = b
                                 }
                       in (b,l) : loop d bs
+
+-- | Read the file caches from ~/.web2hs
+getUserFileCache :: IO FileCache
+getUserFileCache = do
+    home <- getHomeDirectory
+    lsrFiles<- fmap List.lines $ Prelude.readFile $ home </> ".web2hs"
+    fcs <- mapM readLSR $ List.filter (not . List.null) lsrFiles
+    evaluate $ unions fcs
+
 
 ------------------------
 -- Plan:

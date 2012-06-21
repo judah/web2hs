@@ -44,7 +44,7 @@ getOptions = cmdArgs $ Options
                 
 
 main = do
-    fc <- readLSR "/usr/local/texlive/2011basic/texmf-dist/ls-R"
+    fc <- getUserFileCache
     Options {..} <- getOptions
     allocaBytes {#sizeof options#} $ \optionsP -> do
     {#set options.out_mode#} optionsP $ fromIntegral outMode
