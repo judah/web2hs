@@ -9,17 +9,18 @@ main = defaultMainWithHooks myHooks
 myHooks = simpleUserHooks
             { confHook = \genericDescript flags -> do
                         lbi <- confHook simpleUserHooks genericDescript flags
-                        mapM_ (generateTangle lbi) programs
+                        mapM_ (generateC lbi) programs
                         return lbi
             , cleanHook = \packageDescript () hooks flags -> do
                             mapM_ removeFileIfExists
-                                [prog <.> ext | prog <- programs, ext <- ["p","c","pool"]]
+                                [prog <.> ext | prog <- programs,
+                                                ext <- ["p","pool","h","c"]]
                             cleanHook simpleUserHooks packageDescript () hooks flags
             }
 
 programs = ["dvitype","pooltype"]
 
-generateTangle lbi prog = do
+generateC lbi prog = do
     -- TODO: don't do this each time?
     rawSystem "web2hs-tangle" [prog<.>"web", prog<.>"ch", prog<.>"p", prog<.>"pool"]
     rawSystem "web2hs" [prog<.>"p",prog<.>"c"]

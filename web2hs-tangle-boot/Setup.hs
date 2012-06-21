@@ -11,7 +11,7 @@ myHooks = simpleUserHooks
                         generateTangle lbi
                         return lbi
             , cleanHook = \packageDescript () hooks flags -> do
-                            removeFileIfExists "tangle.c"
+                            mapM_ removeFileIfExists ["tangle.c","tangle.h"]
                             cleanHook simpleUserHooks packageDescript () hooks flags
             }
 

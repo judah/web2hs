@@ -13,7 +13,7 @@ myHooks = simpleUserHooks
                         return lbi
             , cleanHook = \packageDescript () hooks flags -> do
                             mapM_ removeFileIfExists
-                                [prog <.> ext | prog <- programs, ext <- ["p","c","pool"]]
+                                [prog <.> ext | prog <- programs, ext <- ["p","c","h","pool"]]
                             cleanHook simpleUserHooks packageDescript () hooks flags
             }
 
