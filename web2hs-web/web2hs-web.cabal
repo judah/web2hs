@@ -11,6 +11,10 @@ maintainer:          judah.jacobson@gmail.com
 build-type:          Custom
 cabal-version:       >=1.8
 
+x-web2hs-source: tangle.web
+x-web2hs-source: weave.web
+x-web2hs-tangle: web2hs-tangle-boot
+
 executable web2hs-tangle
   main-is:          Tangle.hs
   build-depends:    base ==4.5.*, web2hs-lib==0.1.*

@@ -11,11 +11,16 @@ maintainer:          Judah Jacobson <judah.jacobson@gmail.com>
 build-type:          Custom
 cabal-version:       >=1.8
 
+x-web2hs-source: dvitype.web
+x-web2hs-source: pooltype.web
+
 executable web2hs-dvitype
   main-is:             DVIType.hs
-  build-depends:       base ==4.5.*, web2hs-lib ==0.1.*
+  build-depends:       base ==4.5.*, web2hs-lib ==0.1.*, cmdargs==0.9.*
   c-sources:           dvitype.c
-  extensions:          ForeignFunctionInterface
+  includes:            dvitype.h
+  include-dirs:        .
+  extensions:          ForeignFunctionInterface, RecordWildCards, DeriveDataTypeable
 
 executable web2hs-pooltype
   main-is:             Pooltype.hs
