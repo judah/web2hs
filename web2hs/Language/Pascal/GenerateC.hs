@@ -381,22 +381,20 @@ generateConstValue (ConstReal r)
 
 generateRef :: VarReference Scoped -> Doc
 generateRef (NameRef v) = pretty v
--- TODO: correct access for ordinal types not starting at zero
--- TODO: more general arrays
-generateRef (ArrayRef (NameRef v) es)
-    = parens (pretty v) <> arrayAccess v es
-generateRef (RecordRef v n) = parens (pretty v) <> text "." <> pretty n
+generateRef (ArrayRef v es)
+    = parens (generateRef v) <> arrayAccess v es
+generateRef (RecordRef v n) = parens (generateRef v) <> text "." <> pretty n
 generateRef (DeRef v) = text "[FILEREF]" -- error "file refs not implemented"
-generateRef _ = error "refs not implemented yet"
 
 -- TODO: check it's the right number of indices
-arrayAccess :: Var -> [Expr Scoped] -> Doc
+arrayAccess :: VarReference Scoped -> [Expr Scoped] -> Doc
 arrayAccess v es
-    | ArrayType {..} <- varType v
+    | ArrayType {..} <- inferRefTypeNonConst v
         = hcat $ map brackets $ zipWith ordAccess arrayIndexType
                                 $ map generateExpr es
-    | otherwise = error ("accessing " ++ varName v ++ " as array")
+    | otherwise = error ("accessing " ++ show (pretty v) ++ " as array")
 
+ordAccess :: Ordinal -> Doc -> Doc
 ordAccess o e
     | ordLower o == 0 = e
     | otherwise = parens e <> text "-" <> pretty (ordLower o)

@@ -82,4 +82,25 @@ inferVarType Var {..} = exprType varType
 inferVarType Const {..} = inferConstType varValue
 inferVarType FuncReturn {..} = exprType varFuncReturnType
 
-
+-- Things like arrays will never have types involving Const.
+inferRefTypeNonConst :: VarReference Scoped -> OrdType
+inferRefTypeNonConst (NameRef Var{..}) = varType
+inferRefTypeNonConst (NameRef FuncReturn{..}) = varFuncReturnType
+inferRefTypeNonConst (NameRef v@Const{..})
+    = error $ "var ref can't be const: " ++ show (pretty v)
+inferRefTypeNonConst r@(ArrayRef v es)
+    = case inferRefTypeNonConst v of
+        ArrayType {..}
+            | length arrayIndexType == length es -> arrayEltType
+            | otherwise -> error $ "array ref: index mismatch: "
+                                    ++ show (pretty r)
+        _ -> error $ "array ref: not an array: " ++ show (pretty r)
+inferRefTypeNonConst r@(RecordRef v n)
+    = case inferRefTypeNonConst v of
+        RecordType {recordFields=FieldList {..}}
+            | Just t <- lookup n fixedPart  -> t
+            | otherwise -> error $ "record ref: unknown field: "
+                                    ++ show (pretty r)
+        _ -> error $ "record ref: not a record: " ++ show (pretty r)
+inferRefTypeNonConst r = error $ "inferRefType: not implemented: " 
+                            ++ show (pretty r)
