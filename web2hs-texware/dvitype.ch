@@ -30,6 +30,9 @@ end;
 @y
 @!ASCII_code=" ".."~"; {a subrange of the integers}
 @!options=record@!out_mode:3..5;
+  @!start_there:array [0..9] of boolean;
+  @!start_count:array [0..9] of integer;
+  @!start_vals:0..9;
   @!max_pages:integer;
   @!resolution:real;
   @!new_mag:integer;
@@ -100,6 +103,36 @@ if buffer[0]<>" " then
 @ @<Determine the desired |out_mode|@>=
 out_mode:=user_options.out_mode;
 if out_mode < 0 <> out_mode > 4 then out_mode:=4;
+@z
+
+@x
+@ @<Determine the desired |start...@>=
+2: write(term_out,'Starting page (default=*): ');
+start_vals:=0; start_there[0]:=false;
+input_ln; buf_ptr:=0; k:=0;
+if buffer[0]<>" " then
+  repeat if buffer[buf_ptr]="*" then
+    begin start_there[k]:=false; incr(buf_ptr);
+    end
+  else  begin start_there[k]:=true; start_count[k]:=get_integer;
+    end;
+  if (k<9)and(buffer[buf_ptr]=".") then
+    begin incr(k); incr(buf_ptr);
+    end
+  else if buffer[buf_ptr]=" " then start_vals:=k
+  else  begin write(term_out,'Type, e.g., 1.*.-5 to specify the ');
+    write_ln(term_out,'first page with \count0=1, \count2=-5.');
+    goto 2;
+    end;
+  until start_vals=k
+@y
+@ @<Determine the desired |start...@>=
+start_vals := user_options.start_vals;
+for k:=0 to 9 do
+  begin
+    start_there[k] := user_options.start_there[k];
+    start_count[k] := user_options.start_count[k];
+  end;
 @z
 
 @x
