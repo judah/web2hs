@@ -68,15 +68,48 @@ cType ArrayType {..} v
 cType (FileType b) v = case b of
     BaseType (Ordinal 0 255) -> text "FILE *" <+> v
     BaseType OrdinalChar -> text "FILE *" <+> v
+    _ -> text "[[RECORD FILE]]"
 cType RecordType { recordName = Just n } v = pretty n <+> v
-cType RecordType { recordFields = FieldList {variantPart=Nothing,..}} v
-    = cRecordType fixedPart <+> v
+cType RecordType { ..} v = cRecordType recordFields <+> v
 cType t _ = error ("unknown type: " ++ show t)
 
-cRecordType :: Fields Ordinal -> Doc
-cRecordType fs = text "struct" <+> braces (semilistOneLine $ map cField fs)
+{- Record type translation:
+
+two_halves=packed record rh:halfword;
+case two_choices of 1:(lh:halfword);2:(b0:quarterword;b1:quarterword);
+end
+
+becomes:
+
+struct {
+    halfword rh;
+    union {
+        struct {halfword lh;} var1;
+        struct {
+            quarterword b0;
+            quarterword b1;
+        } var2;
+    } variant;
+};
+
+-}
+
+cRecordType :: FieldList Ordinal -> Doc
+cRecordType FieldList {..}
+    = braceBlock (text "struct") (
+                mapSemis cField fixedPart
+                $$ maybe empty unionType variantPart)
   where
-    cField (n,t) = cType t (pretty n) 
+    cField (n,t) = cType t (prettyField n) 
+    unionType Variant {..}
+        = braceBlock (text "union") (mapSemis vField variantFields)
+                <+> text "variant" <> semi
+    vField (i,fs) = braceBlock (text "struct") (mapSemis cField fs)
+                        <+> text "var" <> pretty i
+
+prettyField :: Name -> Doc
+prettyField "int" = text "int_"
+prettyField n = text n
 
 star :: Doc
 star = text "*"
@@ -383,7 +416,8 @@ generateRef :: VarReference Scoped -> Doc
 generateRef (NameRef v) = pretty v
 generateRef (ArrayRef v es)
     = parens (generateRef v) <> arrayAccess v es
-generateRef (RecordRef v n) = parens (generateRef v) <> text "." <> pretty n
+generateRef (RecordRef v n) = parens (generateRef v) <> text "."
+                                <> recordAccess v n
 generateRef (DeRef v) = text "[FILEREF]" -- error "file refs not implemented"
 
 -- TODO: check it's the right number of indices
@@ -397,7 +431,18 @@ arrayAccess v es
 ordAccess :: Ordinal -> Doc -> Doc
 ordAccess o e
     | ordLower o == 0 = e
-    | otherwise = parens e <> text "-" <> pretty (ordLower o)
+    | otherwise = parens e <> text "-" <> parens (pretty (ordLower o))
+
+recordAccess :: VarReference Scoped -> Name -> Doc
+recordAccess v n
+    | RecordType {..} <- inferRefTypeNonConst v
+        = case lookupField n recordFields of
+            Just (Left _) -> prettyField n
+            Just (Right (k,_)) -> text "variant.var" <> pretty k
+                                        <> text "." <> prettyField n
+            Nothing -> error $ "can't find field " ++ show n
+    | otherwise = error $ "not a record: " ++ show (pretty v)
+
 
 cOp:: BinOp -> Doc
 cOp Plus = text "+"
@@ -466,30 +511,41 @@ generateBuiltin :: Name -> [Expr Scoped] -> Doc
 generateBuiltin "chr" [e] = generateExpr e
 generateBuiltin "reset" (e:es) = openForRead e es
 generateBuiltin "rewrite" (e:es) = openForWrite e es
-generateBuiltin "eof" [e] = pretty "pascal_eof" <> paramList [generateExpr e]
-generateBuiltin "eoln" [e] = pretty "pascal_eoln" <> paramList [generateExpr e]
+generateBuiltin "eof" [e] = pretty "pascal_eof" <> paramExprList [e]
+generateBuiltin "eoln" [e] = pretty "pascal_eoln" <> paramExprList [e]
+generateBuiltin "erstat" [e] = pretty "[[ERRSTAT]]" <> paramExprList [e]
+generateBuiltin "close" [e] = pretty "[[CLOSE]]" <> paramExprList [e]
+-- TODO: use .ch to fix this, I think
+generateBuiltin "break_in" es
+    = pretty "[[BREAK_IN]]" <> paramExprList es
 generateBuiltin "read" (f:es) = readVars f es
 generateBuiltin "read_ln" [VarExpr (NameRef f)]
                 = pretty "pascal_readln" <> paramList [pretty f]
-generateBuiltin "get" [f] = pretty "(void)getc" <> paramList [f]
+generateBuiltin "get" [f] = pretty "(void)getc" <> paramExprList [f]
+generateBuiltin "put" [f] = pretty "[[PUT]]" <> paramExprList [f]
 -- set_pos/cur_pos are Knuth-isms, rather than standard pascal.
 generateBuiltin "set_pos" [f,p] = pretty "pascal_setpos" <> paramList [pretty f, generateExpr p]
-generateBuiltin "abs" [x] = pretty "ABS" <> paramList [x]
-generateBuiltin "trunc" [x] = pretty "TRUNC" <> paramList [x]
-generateBuiltin "round" [x] = pretty "round" <> paramList [x]
-generateBuiltin "cur_pos" [f] = pretty "pascal_curpos" <> paramList [f]
+generateBuiltin "abs" [x] = pretty "ABS" <> paramExprList [x]
+generateBuiltin "odd" [x] = pretty "ODD" <> paramExprList [x]
+generateBuiltin "trunc" [x] = pretty "TRUNC" <> paramExprList [x]
+generateBuiltin "round" [x] = pretty "round" <> paramExprList [x]
+generateBuiltin "cur_pos" [f] = pretty "pascal_curpos" <> paramExprList [f]
 -- The WEB break function 
 generateBuiltin "break" [e] = empty
 generateBuiltin "page" [] = empty -- used only in primes.web
 generateBuiltin "web2hs_find_cached" es
-    = pretty "web2hs_find_cached" <> paramList (map generateExpr es)
+    = pretty "web2hs_find_cached" <> paramExprList es
 generateBuiltin f _ = error $ "unknown builtin " ++ show f   
+
+paramExprList :: [Expr Scoped] -> Doc
+paramExprList = paramList . map generateExpr
 
 openForRead :: Expr Scoped -> [Expr Scoped] -> Doc
 openForRead f es = pretty f <+> equals <+> case es of
     [] | VarExpr (NameRef v) <- f -> openForRead (progGlobalVar v)
     [ConstExpr (ConstString "TTY:")] -> text "stdin"
     [e] -> openForRead (generateExpr e)
+    _ -> text "[[OPEN RECORD FILE FOR READ]]"
   where
     openForRead path = text "fopen"
                         <> paramList [path, doubleQuotes (text "r")]
@@ -499,6 +555,7 @@ openForWrite f es = pretty f <+> equals <+> case es of
     [] | VarExpr (NameRef v) <- f -> openForWrite (progGlobalVar v)
     [ConstExpr (ConstString "TTY:")] -> text "stdout"
     [e] -> openForWrite (generateExpr e)
+    _ -> pretty "[[WRITE]]" -- TODO
   where
     openForWrite path = text "fopen"
                                 <> paramList [path,doubleQuotes (text "w")]

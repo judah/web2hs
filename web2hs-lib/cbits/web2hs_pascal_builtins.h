@@ -9,6 +9,7 @@ extern const int false_1c;
 
 #define ABS(x) ((x)>0 ? (x) : -(x))
 #define TRUNC(x) ((x)>0 ? floor(x) : ceil(x))
+#define ODD(x) ((x)%2 != 0)
 
 // Test whether the file is at the end-of-file.
 extern bool pascal_eof(FILE *f);

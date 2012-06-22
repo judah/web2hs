@@ -88,6 +88,10 @@ inferRefTypeNonConst (NameRef Var{..}) = varType
 inferRefTypeNonConst (NameRef FuncReturn{..}) = varFuncReturnType
 inferRefTypeNonConst (NameRef v@Const{..})
     = error $ "var ref can't be const: " ++ show (pretty v)
+inferRefTypeNonConst (DeRef v)
+    = case inferRefTypeNonConst v of
+        FileType t -> t
+        _ -> error $ "deref of non-file: " ++ show (pretty v)
 inferRefTypeNonConst r@(ArrayRef v es)
     = case inferRefTypeNonConst v of
         ArrayType {..}
@@ -97,10 +101,9 @@ inferRefTypeNonConst r@(ArrayRef v es)
         _ -> error $ "array ref: not an array: " ++ show (pretty r)
 inferRefTypeNonConst r@(RecordRef v n)
     = case inferRefTypeNonConst v of
-        RecordType {recordFields=FieldList {..}}
-            | Just t <- lookup n fixedPart  -> t
-            | otherwise -> error $ "record ref: unknown field: "
+        RecordType {..} -> case lookupField n recordFields of
+                Just (Left t) -> t
+                Just (Right (_,t)) -> t
+                Nothing -> error $ "record ref: unknown field: "
                                     ++ show (pretty r)
         _ -> error $ "record ref: not a record: " ++ show (pretty r)
-inferRefTypeNonConst r = error $ "inferRefType: not implemented: " 
-                            ++ show (pretty r)

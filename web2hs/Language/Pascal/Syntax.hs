@@ -138,6 +138,17 @@ data Variant t = Variant {
                 variantFields :: [(Integer,Fields t)]
                 } deriving (Eq,Show)
 
+-- find a field by name.
+-- Left t is a fixed field,
+-- Right (k,t) is a subfield of the kth variant.
+lookupField :: Name -> FieldList t -> Maybe (Either (Type t) (Integer,Type t))
+lookupField n FieldList {..}
+    | Just t <- lookup n fixedPart = Just (Left t)
+    | Just Variant {..} <- variantPart
+    , (r:rs) <- [(k,t)| (k,fs) <- variantFields, (n',t) <- fs, n==n']
+            = Just (Right r)
+    | otherwise = Nothing
+
 
 
 -- Things which can index arrays
