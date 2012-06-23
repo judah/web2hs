@@ -1,8 +1,6 @@
 -- | This module defines an AST for the subset of Pascal used by TeX and friends.
 module Language.Pascal.Syntax where
 
-import Foreign.C.Types (CChar)
-
 type Name = String
 
 type Label = Integer
