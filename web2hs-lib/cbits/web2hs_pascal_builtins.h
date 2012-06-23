@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
@@ -11,6 +12,8 @@ extern const int false_1c;
 #define ABS(x) ((x)>0 ? (x) : -(x))
 #define TRUNC(x) ((x)>0 ? floor(x) : ceil(x))
 #define ODD(x) ((x)%2 != 0)
+
+#define ERSTAT(f) ((f)==0 ? errno : 0)
 
 // Test whether the file is at the end-of-file.
 extern bool pascal_eof(FILE *f);

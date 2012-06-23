@@ -64,10 +64,13 @@ cType ArrayType {..} v
     = cType arrayEltType 
         (v <> hcat (map (brackets . pretty . ordSize)
                                     arrayIndexType))
-cType (FileType b) v = case b of
+cType (FileType b) v = text "FILE *" <+> v
+{-
+case b of
     BaseType (Ordinal 0 255) -> text "FILE *" <+> v
     BaseType OrdinalChar -> text "FILE *" <+> v
-    _ -> text "[[RECORD FILE]]"
+    _ -> text "[[RECORD FILE]]" <> cType b v
+-}
 cType RecordType { recordName = Just n } v = pretty n <+> v
 cType RecordType { ..} v = cRecordType recordFields <+> v
 cType t _ = error ("unknown type: " ++ show t)
@@ -487,7 +490,8 @@ generateRef (ArrayRef v es)
     = parens (generateRef v) <> arrayAccess v es
 generateRef (RecordRef v n) = parens (generateRef v) <> text "."
                                 <> recordAccess v n
-generateRef (DeRef v) = text "[FILEREF]" -- error "file refs not implemented"
+generateRef (DeRef v) = text "[FILEREF]"
+                            <> parens (generateRef v)
 
 -- TODO: check it's the right number of indices
 arrayAccess :: VarReference Scoped -> [Expr Scoped] -> Doc
@@ -593,8 +597,8 @@ generateBuiltin "reset" (e:es) = openForRead e es
 generateBuiltin "rewrite" (e:es) = openForWrite e es
 generateBuiltin "eof" [e] = pretty "pascal_eof" <> paramExprList [e]
 generateBuiltin "eoln" [e] = pretty "pascal_eoln" <> paramExprList [e]
-generateBuiltin "erstat" [e] = pretty "[[ERRSTAT]]" <> paramExprList [e]
-generateBuiltin "close" [e] = pretty "[[CLOSE]]" <> paramExprList [e]
+generateBuiltin "erstat" [e] = pretty "ERSTAT" <> paramExprList [e]
+generateBuiltin "close" [e] = pretty "fclose" <> paramExprList [e]
 -- TODO: use .ch to fix this, I think
 generateBuiltin "break_in" es
     = pretty "[[BREAK_IN]]" <> paramExprList es
@@ -625,7 +629,7 @@ openForRead f es = pretty f <+> equals <+> case es of
     [] | VarExpr (NameRef v) <- f -> openForRead (progGlobalVar v)
     [ConstExpr (ConstString "TTY:")] -> text "stdin"
     [e] -> openForRead (generateExpr e)
-    _ -> text "[[OPEN RECORD FILE FOR READ]]"
+    _ -> text "[[OPEN RECORD FILE FOR READ]]" <> parens (commaList es)
   where
     openForRead path = text "fopen"
                         <> paramList [path, doubleQuotes (text "r")]
@@ -635,7 +639,7 @@ openForWrite f es = pretty f <+> equals <+> case es of
     [] | VarExpr (NameRef v) <- f -> openForWrite (progGlobalVar v)
     [ConstExpr (ConstString "TTY:")] -> text "stdout"
     [e] -> openForWrite (generateExpr e)
-    _ -> pretty "[[WRITE]]" -- TODO
+    _ -> pretty "[[WRITE]]" <> parens (pretty f <> commaList es)-- TODO
   where
     openForWrite path = text "fopen"
                                 <> paramList [path,doubleQuotes (text "w")]
