@@ -70,8 +70,8 @@ setStartPage p specs = do
     forM_ (zip [0..9] fullSpecs) setSpec
   where
     startThere, startCount :: Int -> Ptr CInt
-    startThere k = p `plusPtr` ((1+k)*sizeOf (undefined :: CInt))
-    startCount k = p `plusPtr` ((11+k)*sizeOf (undefined :: CInt))
+    startThere k = p `plusPtr` (1+k)
+    startCount k = startThere 10 `plusPtr` (k * 4)
     setSpec (k,Nothing) = 
         poke (startThere k) 0
     setSpec (k,Just c) = do

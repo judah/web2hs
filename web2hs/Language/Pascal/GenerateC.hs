@@ -8,7 +8,7 @@ import Data.Monoid hiding ( (<>) )
 import Numeric
 import Data.Maybe (catMaybes, isNothing)
 import Data.List ((\\))
-
+import Foreign.C.Types (CChar)
 
 ------------
 {-
@@ -58,8 +58,7 @@ mapSemis f xs = vcat $ map (\x -> f x <> semi) xs
 
 -- Generate a variable declaration, e.g. "int v" or "FILE *x"
 cType :: OrdType -> Doc -> Doc
-cType (BaseType (Ordinal _ _)) v = text "int" <+> v
-cType (BaseType OrdinalChar) v = text "char" <+> v
+cType (BaseType o) v = text (ordinalCName o) <+> v
 cType RealType v = text "float" <+> v
 cType ArrayType {..} v
     = cType arrayEltType 
@@ -72,6 +71,34 @@ cType (FileType b) v = case b of
 cType RecordType { recordName = Just n } v = pretty n <+> v
 cType RecordType { ..} v = cRecordType recordFields <+> v
 cType t _ = error ("unknown type: " ++ show t)
+
+ordinalCName :: Ordinal -> String
+ordinalCName OrdinalChar = "char"
+ordinalCName (Ordinal l h)
+    | l > h = error $ "ordinalCName: low is less than high: " ++ show (l,h)
+    | inRange 0 (2^8) = "uint8_t"
+    | inRange 0 (2^16) = "uint16_t"
+    | inRange 0 (2^32) = "uint32_t"
+    | inRange (-2^7) (2^7) = "int8_t"
+    | inRange (-2^15) (2^15) = "int16_t"
+    | inRange (-2^31) (2^31) = "int32_t"
+    | otherwise = error $ "ordinalCName: range too big: " ++ show (l,h)
+  where
+    inRange low hi = l >= low && h < hi
+
+ordSize :: Ordinal -> Integer
+ordSize o = ordUpper o - ordLower o + 1
+
+-- Since we're translating Pascal chars as C "char",
+-- which may be either signed or unsigned, we use the Haskell CChar type
+-- to determine its bounds.
+ordLower, ordUpper :: Ordinal -> Integer
+ordLower (Ordinal l _) = l
+ordLower OrdinalChar = fromIntegral (minBound :: CChar)
+ordUpper (Ordinal _ u) = u
+ordUpper OrdinalChar = fromIntegral (maxBound :: CChar)
+
+
 
 {- Record type translation:
 
@@ -141,6 +168,7 @@ declareRecordType (n,fs)
 generateHeader :: Program Scoped Ordinal -> Doc
 generateHeader Program {progBlock = Block {..},..}
     =  text "#include <stdio.h>" -- for FILE*
+        $$ text "#include <stdint.h>" -- for u_int8,etc.
         $$ mapSemis declareRecordType [(n,fs) | (n,RecordType {recordFields=fs})
                                                 <- blockTypes]
         $$ head <> semi
@@ -330,11 +358,8 @@ generateStatementBase jmpLabels s = case s of
                           Nothing -> mempty
                           Just s -> braceBlock (text "else")
                                         (generateStatement jmpLabels s)
-    ForStmt {..}
-        -> braceBlock (text "for" <+> parens
-                        (forHead loopVar forStart
-                            forEnd forDirection))
-                $ generateStatement jmpLabels forBody
+    ForStmt {..} -> forStmt loopVar forStart forEnd forDirection
+                        $ generateStatement jmpLabels forBody
     WhileStmt {..}
         -> braceBlock (text "while" <+> parens
                             (generateExpr loopExpr))
@@ -355,16 +380,60 @@ generateStatementBase jmpLabels s = case s of
     CompoundStmt s -> vcat (map (generateStatement jmpLabels) s)
     EmptyStatement -> empty
 
-forHead :: VarID Scoped -> Expr Scoped -> Expr Scoped -> ForDir
-        -> Doc
-forHead i start end UpTo
-    = pretty i <> equals <> pretty start <> semi
-        <+> pretty i <> text "<=" <> pretty end <> semi
-        <+> pretty i <> text "++"
-forHead i start end DownTo
-    = pretty i <> equals <> pretty start <> semi
-        <+> pretty i <> text ">=" <> pretty end <> semi
-        <+> pretty i <> text "--"
+{-
+For statements:
+
+To translate
+    var i:0..255;
+    for i:=0 to 255; do ...;
+we can't just use
+    for (i=0; i<=255; i++)
+since i<=255 will always succeed.
+
+Instead, use:
+    i=0;
+    if (i<=255) do {
+        ...
+    } while (i++ < 255);
+    i = 255;
+
+We need the ending "i=255" since otherwise "i" ends up incremented
+one *past* the final value.
+
+We can omit the initial "if" test in most cases where the for loop bounds
+are constants.
+-}
+
+forStmt :: VarID Scoped -> Expr Scoped -> Expr Scoped -> ForDir -> Doc -> Doc
+forStmt i low hi dir stmt
+    = pretty i <> equals <> generateExpr start <> semi
+    $$ braceBlock (
+        whenD needInitialCheck
+                (text "if" <+> parens (pretty i <> cmpEq <> generateExpr end) )
+            <+> text "do")
+        stmt
+        <+> text "while" 
+        <+> parens (pretty i <> adv <+> cmpNEq <> generateExpr end) <> semi
+    $$ pretty i <+> equals <+> generateExpr end <> semi
+  where
+    (start,end,cmpEq,cmpNEq,adv) = case dir of
+        UpTo -> (low, hi, text "<=", text "<", text "++")
+        DownTo -> (hi, low, text ">=", text ">", text "--")
+    -- Check whether the loop is guaranteed to run at least once.
+    -- (If not, we can omit the initial "if" tet.)
+    -- We know it must if the low and hi are constants and low<=hi.
+    -- (Omitting it prevents warnings from gcc that the test is
+    --  guaranteed to succeed.)
+    needInitialCheck
+        | ConstExpr (ConstInt k1) <- low
+        , ConstExpr (ConstInt k2) <- hi
+        , k1<k2    = False
+        | otherwise = True
+
+whenD :: Bool -> Doc -> Doc
+whenD True x = x
+whenD False _ = empty
+
 
 generateCase :: [Label] -> CaseElt Scoped -> Doc
 generateCase jmpLabels CaseElt {..} = hang cases 2 statements
@@ -508,7 +577,18 @@ extractConstInt c = error ("unable to get constant int from expression "
                             ++ show (pretty c))
 
 generateBuiltin :: Name -> [Expr Scoped] -> Doc
-generateBuiltin "chr" [e] = generateExpr e
+-- Since C chars may be signed, we must cast int->char with (char), which
+-- intentionally overflows 255:int to -1:char.
+-- This way, for example:
+--   var xord: array[char] of integer;
+--   xord[chr(255)]
+-- will be translated as
+--   xord[(char)(255) - (-128)] 
+--   === xord[-1 + 128]
+--   === xord[127]
+-- which is correct, since the char type is -128..127
+-- and 255==-1 is the 128th entry in that list.
+generateBuiltin "chr" [e] = text "(char)" <> parens (generateExpr e)
 generateBuiltin "reset" (e:es) = openForRead e es
 generateBuiltin "rewrite" (e:es) = openForWrite e es
 generateBuiltin "eof" [e] = pretty "pascal_eof" <> paramExprList [e]

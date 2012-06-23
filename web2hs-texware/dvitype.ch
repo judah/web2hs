@@ -105,7 +105,9 @@ if buffer[0]<>" " then
 @y
 @ @<Determine the desired |out_mode|@>=
 out_mode:=user_options.out_mode;
-if out_mode < 0 <> out_mode > 4 then out_mode:=4;
+{ It's guaranteed that out_mode<0, since the C type of out_mode
+  is unsigned. }
+if out_mode > 4 then out_mode:=4;
 @z
 
 @x

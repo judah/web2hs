@@ -1,6 +1,8 @@
 -- | This module defines an AST for the subset of Pascal used by TeX and friends.
 module Language.Pascal.Syntax where
 
+import Foreign.C.Types (CChar)
+
 type Name = String
 
 type Label = Integer
@@ -156,15 +158,6 @@ data Ordinal = Ordinal Integer Integer
             -- We need to differentiate Char for output purposes.
              | OrdinalChar
                     deriving (Show,Eq)
-
-ordSize :: Ordinal -> Integer
-ordSize o = ordUpper o - ordLower o + 1
-
-ordLower, ordUpper :: Ordinal -> Integer
-ordLower (Ordinal l _) = l
-ordLower OrdinalChar = 0
-ordUpper (Ordinal _ u) = u
-ordUpper OrdinalChar = 255
 
 type NamedType = Type NamedOrdinal
 
