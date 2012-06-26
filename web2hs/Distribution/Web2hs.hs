@@ -27,11 +27,10 @@ tangleProgram p = let
 -- Futhermore, it removes all generated files during the "clean" step.
 web2hsUserHooks :: UserHooks -> UserHooks
 web2hsUserHooks hooks = hooks
-    { confHook = \genericDescript flags -> do
-        let pd = packageDescription $ fst genericDescript
+    { buildHook = \pd lbi hooks' flags -> do
         let progs = web2hsWebFiles pd
         mapM_ (generateC (tangleProgram pd)) progs
-        confHook hooks genericDescript flags
+        buildHook hooks pd lbi hooks' flags
     , cleanHook = \packageDescript () hooks' flags -> do
                     mapM_ removeProgFiles
                         $ web2hsWebFiles packageDescript

@@ -6,16 +6,15 @@ import System.Directory (doesFileExist, removeFile)
 main = defaultMainWithHooks myHooks
 
 myHooks = simpleUserHooks
-            { confHook = \genericDescript flags -> do
-                        lbi <- confHook simpleUserHooks genericDescript flags
-                        generateTangle lbi
-                        return lbi
+            { buildHook = \pd lbi hooks' flags -> do
+                        generateTangle
+                        buildHook simpleUserHooks pd lbi hooks' flags
             , cleanHook = \packageDescript () hooks flags -> do
                             mapM_ removeFileIfExists ["tangle.c","tangle.h"]
                             cleanHook simpleUserHooks packageDescript () hooks flags
             }
 
-generateTangle lbi = do
+generateTangle = do
     rawSystem "web2hs" ["tangle.p","tangle.c"]
 
 removeFileIfExists f = do

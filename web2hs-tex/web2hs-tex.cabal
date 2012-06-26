@@ -17,5 +17,4 @@ executable web2hs-tex
   main-is:             TeX.hs
   build-depends:       base ==4.5.*, web2hs-lib ==0.1.*
   c-sources:           tex.c
-  includes:            tex.h
   extensions:          ForeignFunctionInterface
