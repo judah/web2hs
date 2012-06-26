@@ -11,18 +11,18 @@ maintainer:          judah.jacobson@gmail.com
 build-type:          Custom
 cabal-version:       >=1.8
 
-x-web2hs-source: tangle.web
-x-web2hs-source: weave.web
 x-web2hs-tangle: web2hs-tangle-boot
+
+extra-source-files: tangle.web tangle.ch weave.web
 
 executable web2hs-tangle
   main-is:          Tangle.hs
   build-depends:    base ==4.5.*, web2hs-lib==0.1.*
-  c-sources:        tangle.c
+  x-web2hs-source:  tangle.web
   extensions:       ForeignFunctionInterface
 
 executable web2hs-weave
   main-is:          Weave.hs
   build-depends:    base ==4.5.*, web2hs-lib==0.1.*
-  c-sources:        weave.c
+  x-web2hs-source:  weave.web
   extensions:       ForeignFunctionInterface

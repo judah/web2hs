@@ -11,10 +11,11 @@ maintainer:          Judah Jacobson <judah.jacobson@gmail.com>
 build-type:          Custom
 cabal-version:       >=1.8
 
-x-web2hs-source: tex.web
+extra-source-files: tex.web tex.ch
+
 
 executable web2hs-tex
   main-is:             TeX.hs
   build-depends:       base ==4.5.*, web2hs-lib ==0.1.*
-  c-sources:           tex.c
+  x-web2hs-source:     tex.web
   extensions:          ForeignFunctionInterface
