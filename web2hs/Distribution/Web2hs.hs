@@ -2,9 +2,11 @@ module Distribution.Web2hs(web2hsUserHooks) where
 
 import Distribution.Simple
 import Distribution.PackageDescription
-import System.Process (rawSystem)
+import System.Process (readProcessWithExitCode, showCommandForUser)
+import System.Exit (ExitCode(..), exitWith)
 import System.FilePath (replaceExtension)
 import System.Directory (doesFileExist, removeFile)
+import System.IO (hPutStr, hPutStrLn, stderr, stdout)
 import Control.Monad (when)
 
 web2hsWebFiles :: PackageDescription -> [String]
@@ -49,4 +51,10 @@ removeFileIfExists f = do
     exists <- doesFileExist f
     when exists $ removeFile f
 
-rawSystem' p args = print (p,args) >> rawSystem p args
+rawSystem' p args = do
+    hPutStrLn stdout $ showCommandForUser p args
+    (exit, out,err) <- readProcessWithExitCode p args ""
+    hPutStr stdout out
+    hPutStr stderr err
+    when (exit /= ExitSuccess)
+        $ exitWith exit

@@ -65,15 +65,9 @@ cType ArrayType {..} v
         (v <> hcat (map (brackets . pretty . ordSize)
                                     arrayIndexType))
 cType (FileType b) v = text "FILE *" <+> v
-{-
-case b of
-    BaseType (Ordinal 0 255) -> text "FILE *" <+> v
-    BaseType OrdinalChar -> text "FILE *" <+> v
-    _ -> text "[[RECORD FILE]]" <> cType b v
--}
+cType (PointerType t) v = cType t (text "*" <> v)
 cType RecordType { recordName = Just n } v = pretty n <+> v
 cType RecordType { ..} v = cRecordType recordFields <+> v
-cType t _ = error ("unknown type: " ++ show t)
 
 ordinalCName :: Ordinal -> String
 ordinalCName OrdinalChar = "char"
@@ -408,7 +402,7 @@ are constants.
 -}
 
 forStmt :: VarID Scoped -> Expr Scoped -> Expr Scoped -> ForDir -> Doc -> Doc
-forStmt i low hi dir stmt
+forStmt i start end dir stmt
     = pretty i <> equals <> generateExpr start <> semi
     $$ braceBlock (
         whenD needInitialCheck
@@ -419,9 +413,9 @@ forStmt i low hi dir stmt
         <+> parens (pretty i <> adv <+> cmpNEq <> generateExpr end) <> semi
     $$ pretty i <+> equals <+> generateExpr end <> semi
   where
-    (start,end,cmpEq,cmpNEq,adv) = case dir of
-        UpTo -> (low, hi, text "<=", text "<", text "++")
-        DownTo -> (hi, low, text ">=", text ">", text "--")
+    (low,hi,cmpEq,cmpNEq,adv) = case dir of
+        UpTo -> (start,end,text "<=", text "<", text "++")
+        DownTo -> (end,start,text ">=", text ">", text "--")
     -- Check whether the loop is guaranteed to run at least once.
     -- (If not, we can omit the initial "if" tet.)
     -- We know it must if the low and hi are constants and low<=hi.
@@ -430,7 +424,7 @@ forStmt i low hi dir stmt
     needInitialCheck
         | ConstExpr (ConstInt k1) <- low
         , ConstExpr (ConstInt k2) <- hi
-        , k1<k2    = False
+        , k1<=k2    = False
         | otherwise = True
 
 whenD :: Bool -> Doc -> Doc
@@ -490,16 +484,19 @@ generateRef (ArrayRef v es)
     = parens (generateRef v) <> arrayAccess v es
 generateRef (RecordRef v n) = parens (generateRef v) <> text "."
                                 <> recordAccess v n
-generateRef (DeRef v) = text "[FILEREF]"
-                            <> parens (generateRef v)
+generateRef (DeRef v) = error "generateRef: file refs not implemented."
 
 -- TODO: check it's the right number of indices
 arrayAccess :: VarReference Scoped -> [Expr Scoped] -> Doc
 arrayAccess v es
-    | ArrayType {..} <- inferRefTypeNonConst v
-        = hcat $ map brackets $ zipWith ordAccess arrayIndexType
+    | NameRef Const { varValue = ConstString _ } <- v = indexed $ map generateExpr es
+    | otherwise = case inferRefTypeNonConst v of
+        ArrayType {..}  -> indexed $ zipWith ordAccess arrayIndexType
                                 $ map generateExpr es
-    | otherwise = error ("accessing " ++ show (pretty v) ++ " as array")
+        PointerType _   -> indexed $ map generateExpr es
+        _               -> error ("accessing " ++ show (pretty v) ++ " as array")
+  where
+    indexed = hcat . map brackets
 
 ordAccess :: Ordinal -> Doc -> Doc
 ordAccess o e
@@ -553,7 +550,7 @@ generateWrite addNewline writeArgs = case writeArgs of
         BaseType StringType -> ("%s", generateExpr writeExpr)
         BaseType CharType -> ("%c", generateExpr writeExpr)
         BaseType IntegralType -> case widthAndDigits of
-            Nothing -> ("%d",generateExpr writeExpr)
+            Nothing -> ("%c",generateExpr writeExpr)
             Just (k,Nothing) 
                 -> ("%" ++ show (extractConstInt k) ++ "d"
                    , generateExpr writeExpr)
@@ -571,8 +568,7 @@ generateWrite addNewline writeArgs = case writeArgs of
                                     ++ show (extractConstInt d)
                                     ++ "f"
             in (f, generateExpr writeExpr)
-        _ -> error ("Unknown type for write arg: "
-                            ++ show (pretty writeExpr))
+        _ -> error $ "Unknown write expression: " ++ show (pretty writeExpr)
 
 extractConstInt :: Expr Scoped -> Integer
 extractConstInt (ConstExpr (ConstInt n)) = n
@@ -592,70 +588,62 @@ generateBuiltin :: Name -> [Expr Scoped] -> Doc
 --   === xord[127]
 -- which is correct, since the char type is -128..127
 -- and 255==-1 is the 128th entry in that list.
-generateBuiltin "chr" [e] = text "(char)" <> parens (generateExpr e)
+generateBuiltin "chr" [e] = cFunc "(char)" [e]
 generateBuiltin "reset" (e:es) = openForRead e es
 generateBuiltin "rewrite" (e:es) = openForWrite e es
-generateBuiltin "eof" [e] = pretty "pascal_eof" <> paramExprList [e]
-generateBuiltin "eoln" [e] = pretty "pascal_eoln" <> paramExprList [e]
-generateBuiltin "erstat" [e] = pretty "ERSTAT" <> paramExprList [e]
-generateBuiltin "close" [e] = pretty "fclose" <> paramExprList [e]
--- TODO: use .ch to fix this, I think
-generateBuiltin "break_in" es
-    = pretty "[[BREAK_IN]]" <> paramExprList es
-generateBuiltin "read" (f:es) = readVars f es
-generateBuiltin "read_ln" [VarExpr (NameRef f)]
-                = pretty "pascal_readln" <> paramList [pretty f]
-generateBuiltin "get" [f] = pretty "(void)getc" <> paramExprList [f]
-generateBuiltin "put" [f] = pretty "[[PUT]]" <> paramExprList [f]
+generateBuiltin "eof" [e] = cFunc "pascal_eof" [e]
+generateBuiltin "eoln" [e] = cFunc "pascal_eoln" [e]
+generateBuiltin "erstat" [e] = cFunc "ERSTAT" [e]
+generateBuiltin "close" [e] = cFunc "fclose" [e]
+generateBuiltin "read" (f:es)
+    = flip mapSemis es $ \e -> generateExpr e <+> equals <+> cFunc "getc" [f]
+generateBuiltin "read_ln" [f] = cFunc "pascal_readln" [f]
+generateBuiltin "get" [f] = cFunc "(void)getc" [f]
+generateBuiltin "readBinary" [f,e,k]
+    = cFuncDoc "read" [cFunc "fileno" [f], text "&" <> parens (generateExpr e)
+                                 , generateExpr k]
+generateBuiltin "writeBinary" [f,e,k]
+    = cFuncDoc "write" [cFunc "fileno" [f], text "&" <> parens (generateExpr e)
+                                  , generateExpr k]
+generateBuiltin "writeInt32" [f,e] = cFunc "pascal_write32" [f,e]
 -- set_pos/cur_pos are Knuth-isms, rather than standard pascal.
-generateBuiltin "set_pos" [f,p] = pretty "pascal_setpos" <> paramList [pretty f, generateExpr p]
-generateBuiltin "abs" [x] = pretty "ABS" <> paramExprList [x]
-generateBuiltin "odd" [x] = pretty "ODD" <> paramExprList [x]
-generateBuiltin "trunc" [x] = pretty "TRUNC" <> paramExprList [x]
-generateBuiltin "round" [x] = pretty "round" <> paramExprList [x]
-generateBuiltin "cur_pos" [f] = pretty "pascal_curpos" <> paramExprList [f]
+generateBuiltin "set_pos" [f,p] = cFunc "pascal_setpos" [f,p]
+generateBuiltin "abs" [x] = cFunc "ABS" [x]
+generateBuiltin "odd" [x] = cFunc "ODD" [x]
+generateBuiltin "trunc" [x] = cFunc "TRUNC" [x]
+generateBuiltin "round" [x] = cFunc "round" [x]
+generateBuiltin "cur_pos" [f] = cFunc "pascal_curpos" [f]
 -- The WEB break function 
-generateBuiltin "break" [e] = empty
+generateBuiltin "break" [f] = cFunc "fflush" [f]
+generateBuiltin "break_in" (f:_) = cFunc "fflush" [f]
 generateBuiltin "page" [] = empty -- used only in primes.web
-generateBuiltin "web2hs_find_cached" es
-    = pretty "web2hs_find_cached" <> paramExprList es
-generateBuiltin f _ = error $ "unknown builtin " ++ show f   
+generateBuiltin "web2hs_find_cached" es = cFunc "web2hs_find_cached" es
+generateBuiltin f es = error $ "unknown builtin " ++ show f   
+                                ++ show (map pretty es)
 
-paramExprList :: [Expr Scoped] -> Doc
-paramExprList = paramList . map generateExpr
+cFunc :: Name -> [Expr Scoped] -> Doc
+cFunc f = cFuncDoc f . map generateExpr
+
+cFuncDoc :: Name -> [Doc] -> Doc
+cFuncDoc f es = pretty f <> parens (commaList es)
 
 openForRead :: Expr Scoped -> [Expr Scoped] -> Doc
 openForRead f es = pretty f <+> equals <+> case es of
-    [] | VarExpr (NameRef v) <- f -> openForRead (progGlobalVar v)
-    [ConstExpr (ConstString "TTY:")] -> text "stdin"
-    [e] -> openForRead (generateExpr e)
-    _ -> text "[[OPEN RECORD FILE FOR READ]]" <> parens (commaList es)
+    [] | VarExpr (NameRef v) <- f -> fopen (progGlobalVar v)
+    (ConstExpr (ConstString "TTY:"):_) -> text "stdin"
+    [e] -> fopen (generateExpr e)
+    [e,ConstExpr (ConstString "/O")] -> fopen (generateExpr e)
+    _ -> error $ "openForRead: unrecognized arguments: " ++ show (map pretty es)
   where
-    openForRead path = text "fopen"
-                        <> paramList [path, doubleQuotes (text "r")]
+    fopen path = cFuncDoc "fopen" [path, doubleQuotes (text "r")]
 
 openForWrite :: Expr Scoped -> [Expr Scoped] -> Doc
 openForWrite f es = pretty f <+> equals <+> case es of
-    [] | VarExpr (NameRef v) <- f -> openForWrite (progGlobalVar v)
-    [ConstExpr (ConstString "TTY:")] -> text "stdout"
-    [e] -> openForWrite (generateExpr e)
-    _ -> pretty "[[WRITE]]" <> parens (pretty f <> commaList es)-- TODO
+    [] | VarExpr (NameRef v) <- f -> fopen (progGlobalVar v)
+    -- TODO: why wasn't this called?
+    (ConstExpr (ConstString "TTY:"):_) -> text "stdout"
+    [e] -> fopen (generateExpr e)
+    [e,ConstExpr (ConstString "/O")] -> fopen (generateExpr e)
+    _ -> error $ "openForRead: unrecognized arguments: " ++ show (map pretty es)
   where
-    openForWrite path = text "fopen"
-                                <> paramList [path,doubleQuotes (text "w")]
-
-readVars :: Expr Scoped -> [Expr Scoped] -> Doc
-readVars (VarExpr (NameRef f)) es
-    | FileType t <- varType f, t `notElem` byteTypes
-        = error $ "readVars: file type of " ++ show (pretty f)
-    | any (not . isByteVar) es
-        = error $ "readVars: not byte types: " ++ show (map pretty es)
-    | otherwise = semicolonList
-                    [ pretty e <> text " = getc" <> paramList [pretty f] | e <- es]
-
-isByteVar :: Expr Scoped -> Bool
-isByteVar (VarExpr (NameRef v)) = varType v `elem` byteTypes
-isByteVar _ = False
-
-byteTypes :: [Type Ordinal]
-byteTypes = map BaseType [Ordinal 0 255, OrdinalChar]
+    fopen path = cFuncDoc "fopen" [path,doubleQuotes (text "w")]

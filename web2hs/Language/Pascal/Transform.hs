@@ -86,7 +86,7 @@ flattenType (BaseType (NamedType n)) = asks (myLookup "flattenType" n)
 flattenType (BaseType t) = BaseType <$> flattenOrd t
 flattenType (ArrayType ts e) = ArrayType <$> mapM flattenOrd ts <*> flattenType e
 flattenType (FileType t) = FileType <$> flattenType t
-flattenType (Pointer t) = Pointer <$> flattenType t
+flattenType (PointerType t) = PointerType <$> flattenType t
 flattenType (RecordType n FieldList {..})
     = (\x y -> RecordType n $ FieldList x y) <$> flattenFields fixedPart
                                <*> Traversable.mapM flattenVariant variantPart

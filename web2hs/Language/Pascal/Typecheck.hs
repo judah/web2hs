@@ -1,7 +1,14 @@
-module Language.Pascal.Typecheck where
+module Language.Pascal.Typecheck(
+                            ExprBaseType(..),
+                            ExprType,
+                            inferExprType,
+                            inferRefTypeNonConst,
+                            ) where
 
 import Language.Pascal.Syntax
 import Language.Pascal.Pretty
+
+import Control.Arrow (second)
 
 -- a little of a hack, since you can't have arrays
 -- of strings.  whatever.
@@ -18,16 +25,19 @@ exprType ArrayType {..}
     = ArrayType (map (const IntegralType) arrayIndexType)
             (exprType arrayEltType)
 exprType (FileType t) = FileType $ exprType t
-exprType (Pointer t) = Pointer $ exprType t
--- TODO: fields
-{-
-exprType (RecordType FieldList {..})
-     = RecordType FieldList {..}
+exprType (PointerType t) = PointerType $ exprType t
+exprType RecordType {recordFields = FieldList {..},..}
+    = RecordType {recordFields = FieldList
+                    { fixedPart = fieldsType fixedPart,
+                      variantPart = fmap variantType variantPart
+                    },..}
   where
-    fixedPart = fmap (second exprType) fixedPart
-
-exprFieldType :: 
--}
+    fieldsType = map (second exprType)
+    variantType Variant {..}
+        = Variant
+            { variantSelector = exprType variantSelector
+            , variantFields = map (second fieldsType) variantFields
+            }
 
 inferExprType :: Expr Scoped -> ExprType
 inferExprType (ConstExpr c) = inferConstType c
@@ -66,14 +76,15 @@ inferConstType (ConstString s)
 
 inferRefType :: VarReference Scoped -> ExprType
 inferRefType (NameRef v) = inferVarType v
-inferRefType r@(ArrayRef v _)
-    | ArrayType _ t <- inferRefType v = t
-    | otherwise = error $
+inferRefType r@(ArrayRef v _) = case inferRefType v of
+    ArrayType _ t -> t
+    PointerType t -> t
+    _   -> error $
                     "inferRefType: non-array ref "
                     ++ show (pretty r)
 inferRef r@(DeRef v) = case inferRefType v of
     FileType t -> t
-    Pointer t -> t
+    PointerType t -> t
     _ -> error $ "inferRefType: dereference of " ++ show (pretty r)
 inferRef (RecordRef _ _) = error "inferRef: records not implemented"
 

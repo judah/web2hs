@@ -99,8 +99,6 @@ data Expr v
           | BinOp (Expr v) BinOp (Expr v)
           | NotOp (Expr v)
           | Negate (Expr v)
-          -- not necessary? | ArrayAccess Name [Expr]
-            -- records?
 
 
 data ConstValue = ConstInt Integer
@@ -122,7 +120,7 @@ data Type t
     | FileType { fileEltType :: Type t }
     | RecordType { recordName :: Maybe Name,
                    recordFields :: FieldList t }
-    | Pointer (Type t)
+    | PointerType (Type t)
         deriving (Eq, Show)
 
 --  NOTE: TeX only requires a subset of Pascal's record functionality.

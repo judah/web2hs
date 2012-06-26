@@ -5,5 +5,6 @@ Subfolders are:
 - web2hs-tangle-boot: bootstrapping tangle (for converting .web->.p
 - web2hs-web: WEB-related binaries (tangle,weave)
 - web2hs-texware: tex support programs (dvitype, pooltype)
+- web2hs-tex: The actual "tex" executable.
 
 They should be installed in the above order.

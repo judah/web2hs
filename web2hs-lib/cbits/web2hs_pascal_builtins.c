@@ -56,6 +56,12 @@ int pascal_peekc(FILE *f) {
     return c;
 }
 
+
+// TODO: more efficient...
+extern void pascal_write32(FILE *f, int32_t e) {
+    write(fileno(f),&e,4);
+}
+
 void pascal_setpos(FILE *f, int p) {
    if (p<0) {
        fseek(f,0,SEEK_END);

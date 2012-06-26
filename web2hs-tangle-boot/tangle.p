@@ -2,7 +2,7 @@
 {:4}program TANGLE(web_file,change_file,Pascal_file,pool);label 9999;
 const{8:}buf_size=100;max_bytes=45000;max_toks=50000;max_names=4000;
 max_texts=2000;hash_size=353;longest_name=400;line_length=72;
-out_buf_size=144;stack_size=50;max_id_length=50;unambig_length=7;
+out_buf_size=144;stack_size=50;max_id_length=50;unambig_length=50;
 {:8}type{11:}ASCII_code=0..255;{:11}{12:}text_file=packed file of char;
 {:12}{37:}eight_bits=0..255;sixteen_bits=0..65535;
 {:37}{39:}name_pointer=0..max_names;{:39}{43:}text_pointer=0..max_texts;

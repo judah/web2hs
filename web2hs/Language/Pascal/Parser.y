@@ -254,7 +254,7 @@ typeDescr :: { NamedType }
     | maybepacked file of typeDescr
                         { FileType $4 }
     | maybepacked record fieldList end { RecordType Nothing $3 }
-    | '^' typeDescr { Pointer $2 }
+    | '^' typeDescr { PointerType $2 }
 
 
 baseType :: { NamedOrdinal }

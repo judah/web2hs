@@ -1,8 +1,12 @@
 % [8] allow longer identifiers
 @x
 @!max_id_length=12; {long identifiers are chopped to this length, which must
+  not exceed |line_length|}
+@!unambig_length=7; {identifiers must be unique if chopped to this length}
+  {note that 7 is more strict than \PASCAL's 8, but this can be varied}
 @y
-@!max_id_length=50; {long identifiers are chopped to this length, which must
+@!max_id_length=50;
+@!unambig_length=50;
 @z
 
 % [105] Expect "div" and "mod" instead of "DIV" and "MOD"
