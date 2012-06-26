@@ -1,9 +1,11 @@
 % [11]
 % Make pool_name point to the local file "tex.pool".
 @x
+@!file_name_size=40; {file names shouldn't be longer than this}
 @!pool_name='TeXformats:TEX.POOL                     ';
   {string of length |file_name_size|; tells where the string pool appears}
 @y
+@!file_name_size=200; {file names shouldn't be longer than this}
 @!pool_name_size=8;
 @!pool_name='tex.pool';
   {string of length |pool_name_size|; tells where the string pool appears}
@@ -25,6 +27,7 @@ name_of_file:=pool_name; {we needn't set |name_length|}
 @y
 for k:=1 to pool_name_size do name_of_file[k] := pool_name[k-1];
 name_of_file[k+1] := chr(0); {we needn't set |name_length|}
+web2hs_find_cached(name_of_file,name_of_file,file_name_size);
 @z
 
 % [514]

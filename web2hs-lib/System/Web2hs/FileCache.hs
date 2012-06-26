@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -fno-cse #-}
 module System.Web2hs.FileCache(
                 FileCache,
+                singleton,
+                orSearch,
                 LocatedFile(),
                 locatedFilePath,
                 readLSR,
@@ -8,8 +10,9 @@ module System.Web2hs.FileCache(
                 getUserFileCache,
                 ) where
 
-import Data.HashMap.Strict as HashMap
-import Data.ByteString.Char8 as B
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
+import Data.ByteString.Char8 as B hiding (singleton)
 import qualified Data.ByteString.Lazy.Char8 as L
 import qualified Data.List as List
 import Control.Exception (bracket,evaluate)
@@ -25,10 +28,23 @@ import System.Directory (getHomeDirectory)
 -- Maps the name of a file to a (relative) path to the folder where it's located
 type FileCache = HashMap ByteString LocatedFile
 
+singleton :: String -> FilePath -> FileCache
+singleton s t = HashMap.singleton (B.pack s) 
+                    LocatedFile
+                        { parentDir = B.empty
+                        , locatedFolder = B.pack (dropFileName t)
+                        , locatedFilename = B.pack (takeFileName t)
+                        }
+
+-- | Combine two caches.  If a file is in both f1 and f2, then
+-- @f1 `orSearch` f2@ will contain the value in f1.
+orSearch :: FileCache -> FileCache -> FileCache
+orSearch = HashMap.union
+
 -- We store the parts of the path separately (rather than concatenated)
 -- so we don't need to copy parentDir and locatedFolder for each entry.
 data LocatedFile = LocatedFile {
-                    parentDir, locatedFolder, locatedBasename :: !ByteString
+                    parentDir, locatedFolder, locatedFilename :: !ByteString
                     }
 
 instance Show LocatedFile where
@@ -37,12 +53,12 @@ instance Show LocatedFile where
 locatedFilePath :: LocatedFile -> FilePath
 locatedFilePath l = unpack (parentDir l) 
                     ++ "/" ++ unpack (locatedFolder l)
-                    ++ "/" ++ unpack (locatedBasename l)
+                    ++ "/" ++ unpack (locatedFilename l)
 
 readLSR :: FilePath -> IO FileCache
 readLSR f = do
     contents <- L.readFile f
-    evaluate $ fromList $ parseLines (pack $ takeDirectory f)
+    evaluate $ HashMap.fromList $ parseLines (pack $ takeDirectory f)
         $ fmap (B.concat . L.toChunks)
         $ L.lines contents
 
@@ -56,7 +72,7 @@ parseLines parent = loop (B.pack ".") -- arbitrary default
         | otherwise = let l = LocatedFile
                                 { parentDir = parent
                                 , locatedFolder = d
-                                , locatedBasename = b
+                                , locatedFilename = b
                                 }
                       in (b,l) : loop d bs
 
@@ -66,7 +82,7 @@ getUserFileCache = do
     home <- getHomeDirectory
     lsrFiles<- fmap List.lines $ Prelude.readFile $ home </> ".web2hs"
     fcs <- mapM readLSR $ List.filter (not . List.null) lsrFiles
-    evaluate $ unions fcs
+    evaluate $ HashMap.unions fcs
 
 
 ------------------------
@@ -96,14 +112,14 @@ withFileCache fc = bracket start end . const
     end = writeIORef globalFileCache
 
 foreign export ccall web2hs_find_cached
-    :: Ptr CChar -> CInt -> Ptr CChar -> CInt -> IO ()
+    :: Ptr CChar -> Ptr CChar -> CInt -> IO ()
 
 -- Takes in a string buffers (input and output)
 -- input is a file name (null-terminated)
 -- output is full path to the file (null-terminated)
 -- input and output can be the same pointer.
-web2hs_find_cached :: Ptr CChar -> CInt -> Ptr CChar -> CInt -> IO ()
-web2hs_find_cached inP inLen outP outLen = do
+web2hs_find_cached :: Ptr CChar -> Ptr CChar -> CInt -> IO ()
+web2hs_find_cached inP outP outLen = do
     file <- packCString inP
     Prelude.putStrLn $ "Finding file " ++ show file
     fc <- readIORef globalFileCache
@@ -116,7 +132,6 @@ web2hs_find_cached inP inLen outP outLen = do
                 Prelude.putStrLn $ "Length of path is too long: " ++ show path
                 poke outP 0
             | otherwise -> do
-                Prelude.putStrLn $ "found: " ++ show path
                 -- TODO: more efficient
                 withCString path $ \p -> do
                 copyArray outP p len

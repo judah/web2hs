@@ -14,8 +14,10 @@ import Control.Monad (when, forM)
 web2hsWebFiles :: Executable -> [String]
 web2hsWebFiles e = [f | ("x-web2hs-source",f) <- customFieldsBI $ buildInfo e]
 
-web2hsBuildDir :: LocalBuildInfo -> Executable -> FilePath
-web2hsBuildDir lbi e = buildDir lbi </> exeName e </> "web2hs"
+-- Keep all generated files for all executables in one folder.
+-- This way we can get at all of the .pool files at once.
+web2hsBuildDir :: LocalBuildInfo -> FilePath
+web2hsBuildDir lbi = buildDir lbi </> "web2hs-gen"
 
 -- For bootstrapping tangle, must call the helper "web2hs-tangle-boot"
 tangleProgram :: PackageDescription -> String
@@ -33,12 +35,11 @@ tangleProgram p = let
 -- It also changes the executables to build against the generated files.
 web2hsUserHooks :: UserHooks -> UserHooks
 web2hsUserHooks hooks = hooks
-    {
-    buildHook = \pd lbi hooks' flags -> do
+    { buildHook = \pd lbi hooks' flags -> do
         exes <- forM (executables pd) $ \exe -> do
                     let bi = buildInfo exe
                     let verbosity = fromFlag (buildVerbosity flags)
-                    let parent = web2hsBuildDir lbi exe
+                    let parent = web2hsBuildDir lbi
                     createDirectoryIfMissingVerbose verbosity True parent
                     cFiles <- forM (web2hsWebFiles exe) $ \f -> do
                                 let cOutput = parent </> takeBaseName f <.> "c"
@@ -50,8 +51,21 @@ web2hsUserHooks hooks = hooks
                                     } 
                                }
         buildHook hooks
-            pd { executables = exes } lbi hooks' flags
+            pd { executables = exes }
+            lbi hooks' flags
+    , copyHook = copyWithPool (copyHook hooks)
+    , instHook = copyWithPool (instHook hooks)
     }
+
+-- Copy the .pool files so they can be accessed from the executable as data files.
+copyWithPool act pd lbi hooks' flags = do
+            let poolDir = web2hsBuildDir lbi
+            let poolFiles = [replaceExtension f "pool"
+                             | exe <- executables pd, f <- web2hsWebFiles exe]
+            act pd { dataFiles = poolFiles 
+                   , dataDir = poolDir
+                   }
+                lbi hooks' flags
 
 generateC tangle webFile cFile = do
     let changeFile = replaceExtension webFile "ch"

@@ -16,6 +16,7 @@ extra-source-files: tex.web tex.ch
 
 executable web2hs-tex
   main-is:             TeX.hs
+  other-modules:       Paths_web2hs_tex
   build-depends:       base ==4.5.*, web2hs-lib ==0.1.*
   x-web2hs-source:     tex.web
   extensions:          ForeignFunctionInterface

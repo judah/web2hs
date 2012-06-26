@@ -255,6 +255,6 @@ for k:=font_name[nf] to font_name[nf+1]-1 do
   end;
 cur_name[r+1]:='.'; cur_name[r+2]:='t'; cur_name[r+3]:='f';
 cur_name[r+4]:='m'; cur_name[r+5]:=chr(0);
-web2hs_find_cached(cur_name,name_length,cur_name,name_length);
+web2hs_find_cached(cur_name,cur_name,name_length);
 @z
 
