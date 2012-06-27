@@ -68,13 +68,19 @@ parseLines parent = loop (B.pack ".") -- arbitrary default
     loop _ [] = []
     loop d (b:bs)
         | B.null b = loop d bs
-        | B.last b == ':' = loop (B.init b) bs
+        | B.last b == ':' = loop (simplifyFoldername $ B.init b) bs
         | otherwise = let l = LocatedFile
                                 { parentDir = parent
                                 , locatedFolder = d
                                 , locatedFilename = b
                                 }
                       in (b,l) : loop d bs
+    -- texlive puts a "./" at the front of each folder name;
+    -- remove it since it's always superfluous.
+    simplifyFoldername b
+        | dotSlash `isPrefixOf` b = B.drop (B.length dotSlash) b
+        | otherwise = b
+    dotSlash = B.pack "./"
 
 -- | Read the file caches from ~/.web2hs
 getUserFileCache :: IO FileCache
@@ -112,30 +118,34 @@ withFileCache fc = bracket start end . const
     end = writeIORef globalFileCache
 
 foreign export ccall web2hs_find_cached
-    :: Ptr CChar -> Ptr CChar -> CInt -> IO ()
+    :: Ptr CChar -> Ptr CChar -> CInt -> IO CInt
 
 -- Takes in a string buffers (input and output)
 -- input is a file name (null-terminated)
 -- output is full path to the file (null-terminated)
 -- input and output can be the same pointer.
-web2hs_find_cached :: Ptr CChar -> Ptr CChar -> CInt -> IO ()
+-- Returns length of returned string (without the terminating null),
+-- or zero if the the file could not be found.
+web2hs_find_cached :: Ptr CChar -> Ptr CChar -> CInt -> IO CInt
 web2hs_find_cached inP outP outLen = do
     file <- packCString inP
-    Prelude.putStrLn $ "Finding file " ++ show file
     fc <- readIORef globalFileCache
     case fmap locatedFilePath $ HashMap.lookup file fc of
         Nothing -> do
-            Prelude.putStrLn $ "File " ++ show file ++ " not found"
             poke outP 0
+            return 0
         Just path
             | len > fromIntegral outLen -> do
+                -- TODO: should be able to remove need for this
                 Prelude.putStrLn $ "Length of path is too long: " ++ show path
                 poke outP 0
+                return 0
             | otherwise -> do
                 -- TODO: more efficient
                 withCString path $ \p -> do
-                copyArray outP p len
+                copyArray outP p (len+1)
+                return $ fromIntegral len
           where
-            len = Prelude.length path + 1
+            len = Prelude.length path
 
 

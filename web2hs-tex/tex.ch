@@ -16,8 +16,12 @@
 % ignore the first character of input.
 @x
   if not input_ln(term_in,true) then {this shouldn't happen}
+    begin write_ln(term_out);
+    write(term_out,'! End of file on the terminal... why?');
 @y
   if not input_ln(term_in,false) then {this shouldn't happen}
+    begin write_ln(term_out);
+    write_ln(term_out,'! End of file on the terminal... why?');
 @z
 
 % [51]
@@ -33,9 +37,15 @@ web2hs_find_cached(name_of_file,name_of_file,file_name_size);
 % [514]
 % Make the fonts area a unix-style folder.
 @x
+@d TEX_area=="TeXinputs:"
+@.TeXinputs@>
 @d TEX_font_area=="TeXfonts:"
+@.TeXfonts@>
 @y
-@d TEX_font_area=="TeXfonts/"
+@d TEX_area==""
+@.TeXinputs@>
+@d TEX_font_area==""
+@.TeXfonts@>
 @z
 
 % [519]
@@ -93,6 +103,29 @@ for k:=3*month-2 to 3*month do wlog(months[k]);
 for k:=3*month-3 to 3*month-1 do wlog(months[k]);
 @z
 
+% [537]
+% Use the cache to find .tex files.
+% Note that immediately before this code, TeX calls a_open_in on the
+% unexpanded name_of_file; this is how it tries to open local files.
+@x
+    if a_open_in(cur_file) then goto done;
+@y
+    name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
+    if (name_length>0) and (a_open_in(cur_file)<>false) then goto done;
+@z
+
+
+% [563]
+% Use the cache to find .tfm files.
+@x
+if not b_open_in(tfm_file) then abort;
+@y
+name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
+if (name_length <= 0) or (not b_open_in(tfm_file)) then abort;
+@z
+
+
+
 % [1305]
 % Use writeBinary to dump 32-bit structures/integers.
 % Note that we use a separate writeInt32 function
@@ -139,4 +172,12 @@ readBinary(fmt_file,x,4);
 dump_int(interaction); dump_int(format_ident); dump_int(69069);
 @y
 dump_int(interaction); dump_int(format_ident); dump_int(69069);dump_int(69069);
+@z
+
+% [1333]
+% Ensure that there's an ending newline.
+@x
+    slow_print(log_name); print_char(".");
+@y
+    slow_print(log_name); print_char("."); print_ln;
 @z
