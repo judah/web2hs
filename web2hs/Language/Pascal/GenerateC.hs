@@ -218,7 +218,7 @@ programArgInitialization :: Var -> Doc
 programArgInitialization v
     | isRecordVar v = pretty v <+> equals <+> star <> progArgVar v
     | isFileVar v = progGlobalVar v <+> equals <+> progArgVar v
-    | otherwise = star <> pretty v <+> equals <+> progArgVar v
+    | otherwise = pretty v <+> equals <+> progArgVar v
 
 isFileVar :: Var -> Bool
 isFileVar Var {varType = FileType _} = True
@@ -568,6 +568,7 @@ generateWrite addNewline writeArgs = case writeArgs of
                                     ++ show (extractConstInt d)
                                     ++ "f"
             in (f, generateExpr writeExpr)
+        PointerType _ -> ("%s", generateExpr writeExpr)
         -- The ArrayType and FileType cases never appear in TeX-and-friends,
         -- but they're useful for debugging.
         -- Note that the ArrayType case assumes the array contains
