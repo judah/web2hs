@@ -82,11 +82,11 @@ inferRefType r@(ArrayRef v _) = case inferRefType v of
     _   -> error $
                     "inferRefType: non-array ref "
                     ++ show (pretty r)
-inferRef r@(DeRef v) = case inferRefType v of
+inferRefType r@(DeRef v) = case inferRefType v of
     FileType t -> t
     PointerType t -> t
     _ -> error $ "inferRefType: dereference of " ++ show (pretty r)
-inferRef (RecordRef _ _) = error "inferRef: records not implemented"
+inferRefType (RecordRef _ _) = error "inferRef: records not implemented"
 
 inferVarType :: Var -> ExprType
 inferVarType Var {..} = exprType varType

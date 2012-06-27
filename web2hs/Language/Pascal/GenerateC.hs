@@ -568,6 +568,13 @@ generateWrite addNewline writeArgs = case writeArgs of
                                     ++ show (extractConstInt d)
                                     ++ "f"
             in (f, generateExpr writeExpr)
+        -- The ArrayType and FileType cases never appear in TeX-and-friends,
+        -- but they're useful for debugging.
+        -- Note that the ArrayType case assumes the array contains
+        -- a null character.
+        ArrayType _ (BaseType CharType) ->
+                ("%s",generateExpr writeExpr)
+        FileType _ -> ("%p", generateExpr writeExpr);
         _ -> error $ "Unknown write expression: " ++ show (pretty writeExpr)
 
 extractConstInt :: Expr Scoped -> Integer
