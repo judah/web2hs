@@ -6,8 +6,6 @@ module Language.Pascal.Transform
 
 import Language.Pascal.Syntax
 
-import Control.Arrow
-
 import qualified Data.Map as Map
 import Data.Map (Map )
 import Control.Monad.Trans.State.Lazy
@@ -41,7 +39,7 @@ flattenProgram p = p {progBlock = flip runReader Map.empty
                                     $ flattenBlock (progBlock p)}
 
 flattenBlock :: Block Unscoped NamedOrdinal -> TypeM (Block Unscoped Ordinal)
-flattenBlock b@Block {..}
+flattenBlock Block {..}
     = mapReaderT (withs (uncurry withConstValue) blockConstants)
       $ withs (uncurry withBlockType) blockTypes $ do
             blockTypes <- mapM (secondM flattenType) blockTypes -- TODO: redundant
@@ -57,6 +55,8 @@ withs' :: Monad m => (a -> (b -> m c) -> m c) -> [a] -> ([b] -> m c) -> m c
 withs' _ [] act = act []
 withs' f (x:xs) act = f x $ \y -> withs' f xs $ act . (y:)
 
+withConstValue :: Monad m => Name -> ConstValue -> ReaderT ConstMap m a 
+                    -> ReaderT ConstMap m a
 withConstValue n (ConstInt k) = withConstant n k
 withConstValue _ _ = id
 
@@ -84,6 +84,7 @@ flattenHeading FuncHeading {..}
 flattenType :: NamedType -> TypeM (Type Ordinal)
 flattenType (BaseType (NamedType n)) = asks (myLookup "flattenType" n)
 flattenType (BaseType t) = BaseType <$> flattenOrd t
+flattenType RealType = pure RealType
 flattenType (ArrayType ts e) = ArrayType <$> mapM flattenOrd ts <*> flattenType e
 flattenType (FileType t) = FileType <$> flattenType t
 flattenType (PointerType t) = PointerType <$> flattenType t
@@ -124,15 +125,10 @@ withConstant :: Monad m => Name -> Integer
         -> ReaderT ConstMap m a -> ReaderT ConstMap m a
 withConstant n k = local $ Map.insert n k
 
-withType :: Name -> NamedType -> TypeM () -> TypeM ()
-withType n t act = do
-    o <- flattenType t
-    local (Map.insert n o) act
-
 ---------------------------------------------
 
 resolveProgram :: Program Unscoped Ordinal -> Program Scoped Ordinal
-resolveProgram p@Program {..} = 
+resolveProgram Program {..} = 
                         let (progBlock', progArgs')
                                     = flip evalState 0
                                         $ flip runReaderT Map.empty
@@ -140,14 +136,17 @@ resolveProgram p@Program {..} =
                                         $ resolveBlock Global progArgs progBlock
                         in Program {progArgs = progArgs',progBlock=progBlock',..}
 
+withPrimConsts :: VarM a -> VarM a
 withPrimConsts = withConstVar "true" (ConstInt 1)
                 . withConstVar "false" (ConstInt 0)
                 . withBlockVar Global "tty" (FileType (BaseType (Ordinal 0 255)))
 
-type VarM = ReaderT (Map Name (Either Var Func)) (State Integer)
+data Resolved = ResolvedVar Var | ResolvedFunc Func
+
+type VarM = ReaderT (Map Name Resolved) (State Integer)
 
 resolveBlock :: Scope -> [Name] -> Block Unscoped Ordinal -> VarM (Block Scoped Ordinal, [Var])
-resolveBlock s progArgs b@Block {..} = withs (uncurry $ withBlockVar s) blockVars 
+resolveBlock s progArgs Block {..} = withs (uncurry $ withBlockVar s) blockVars 
                         $ withs (uncurry withConstVar) blockConstants 
                         $ withs' withFunction blockFunctions $ \blockFunctions -> do
         blockStatements <- mapM resolveStatement blockStatements
@@ -159,13 +158,14 @@ resolveBlock s progArgs b@Block {..} = withs (uncurry $ withBlockVar s) blockVar
 withBlockVar :: Scope -> Name -> Type Ordinal -> VarM a -> VarM a
 withBlockVar s n t act = do
     u <- nextUnique
-    local (Map.insert n (Left $ Var n u t s)) act
+    local (Map.insert n (ResolvedVar $ Var n u t s)) act
 
 withConstVar :: Name -> ConstValue -> VarM a -> VarM a
 withConstVar n c act = do
     u <- nextUnique
-    local (Map.insert n (Left $ Const n u c)) act
+    local (Map.insert n $ ResolvedVar $ Const n u c) act
 
+nextUnique :: VarM Integer
 nextUnique = lift $ do
     u <- get
     put (u+1)
@@ -175,42 +175,35 @@ resolveVar :: Name -> VarM Var
 resolveVar n = do
     m <- ask
     case myLookup "resolveVar" n m of
-        Left v -> return v
-        Right f -> error $ "expected var, got func: " ++ show n
-                        ++ "\n" ++ show (cvtMap m)
-  where
-    cvtMap = fmap $ either (\v -> varName v ++ "_v")
-                        (\f -> funcVarName f ++ "_f")
+        ResolvedVar v -> return v
+        _ -> error $ "name is not a var:" ++ show n
 
 resolveFunc :: Name -> VarM FuncCall
 resolveFunc n = do
     f <- resolveFuncCallOrVar n
     case f of
-        Left v -> error $ "resolveFunc: " ++ show n 
+        Left _ -> error $ "resolveFunc: " ++ show n 
                                     ++ "expected func, got var"
-        Right f -> return f
+        Right f' -> return f'
  
 resolveFuncCallOrVar :: Name -> VarM (Either Var FuncCall)
 resolveFuncCallOrVar n = do
     r <- asks $ Map.lookup n
     return $ case r of
                 Nothing -> Right $ BuiltinFunc n
-                Just (Right f) -> Right $ DefinedFunc f
-                Just (Left v) -> Left v
+                Just (ResolvedFunc f) -> Right $ DefinedFunc f
+                Just (ResolvedVar v) -> Left v
 
-resolveFuncReturnOrVar :: Name -> VarM Var
-resolveFuncReturnOrVar n = do
-    r <- asks $ myLookup "resolveFuncReturnOrVar" n
+resolveLValue :: Name -> VarM LValue
+resolveLValue n = do
+    r <- asks $ myLookup "resolveLValue" n
     case r of
-        Left v -> return v
-        Right f
-            | Just  t <- funcReturnType (funcVarHeading f)
-                                     -> return $ FuncReturn f t
-            | otherwise -> error 
-                            $ "setting return for procedure "
-                                 ++ show n
+        ResolvedVar v -> return $ VLValue $ NameRef v
+        ResolvedFunc f
+            | Just t <- funcReturnType (funcVarHeading f)
+                            -> return $ FLValue $ FuncReturn f t
+            | otherwise -> error $ "Using procedure as lvalue: " ++ show n
 
-    
 
 withFunction :: FunctionDecl Unscoped Ordinal
             -> (FunctionDecl Scoped Ordinal -> VarM a) -> VarM a
@@ -231,24 +224,19 @@ withHeading :: Name -> FuncHeading Unscoped Ordinal
 withHeading n FuncHeading {..} act = do
     existing <- asks (Map.lookup n)
     case existing of
-        Just (Right f) -> act f
+        Just (ResolvedFunc f) -> act f
         _ -> do
                 funcUnique <- nextUnique
                 withs' withParam funcArgs $ \funcArgs -> do
                 let funcVarName = n
                 let funcVarHeading = FuncHeading {..}
                 let f = Func {..}
-                withFuncReturn f funcReturnType
-                    $ local (Map.insert n (Right f)) $ act f
+                withFunc f $ act f
 
 
 withFunc :: Func -> VarM a -> VarM a
-withFunc f@Func {..} act = local (Map.insert funcVarName (Right f)) act
-
--- TODO: test for valid FuncReturns...
-withFuncReturn :: Func -> Maybe (Type Ordinal) -> VarM a -> VarM a
-withFuncReturn _ Nothing = id
-withFuncReturn f (Just t) = local (Map.insert (funcVarName f) (Left (FuncReturn f t)))
+withFunc f@Func {..} act
+    = local (Map.insert funcVarName (ResolvedFunc f)) act
 
 withParam :: FuncParam Unscoped Ordinal -> (FuncParam Scoped Ordinal -> VarM a)
                 -> VarM a
@@ -262,10 +250,7 @@ resolveStatement = secondM resolveStatementBase
 
 resolveStatementBase :: StatementBase Unscoped -> VarM (StatementBase Scoped)
 resolveStatementBase s = case s of
-    AssignStmt {assignTarget = NameRef n,..} -> do
-                v <- resolveFuncReturnOrVar n
-                AssignStmt (NameRef v) <$> resolveExpr assignExpr
-    AssignStmt {..} -> AssignStmt <$> resolveRef assignTarget
+    AssignStmt {..} -> AssignStmt <$> resolveLValueRef assignTarget
                                   <*> resolveExpr assignExpr
     ProcedureCall {..} -> ProcedureCall
                             <$> resolveFunc funName
@@ -283,10 +268,17 @@ resolveStatementBase s = case s of
                             <*> mapM resolveCaseElt caseList
     Goto l -> pure $ Goto l
     Write {..} -> Write addNewline <$> mapM resolveWriteArg writeArgs
-    CompoundStmt s -> CompoundStmt <$> resolveStatementList s
+    CompoundStmt s' -> CompoundStmt <$> resolveStatementList s'
     EmptyStatement -> pure EmptyStatement
 
+resolveLValueRef :: LValueRef Unscoped -> VarM (LValueRef Scoped)
+resolveLValueRef (NameRef n) = resolveLValue n
+resolveLValueRef v = VLValue <$> resolveRef v
+
+resolveCaseElt :: CaseElt Unscoped -> VarM (CaseElt Scoped)
 resolveCaseElt CaseElt {..} = CaseElt caseConstants <$> resolveStatement caseStmt
+
+resolveWriteArg :: WriteArg Unscoped -> VarM (WriteArg Scoped)
 resolveWriteArg WriteArg {..}
     = WriteArg <$> resolveExpr writeExpr
         <*> Traversable.forM widthAndDigits
@@ -307,13 +299,17 @@ resolveRef r = case r of
 resolveExpr :: Expr Unscoped -> VarM (Expr Scoped)
 resolveExpr e = case e of
     ConstExpr c -> pure $ ConstExpr c
-    VarExpr (NameRef n) -> do
-        funcOrVar <- resolveFuncCallOrVar n
-        case funcOrVar of
-            Left v -> return $ VarExpr (NameRef v)
-            Right f -> return $ FuncCall f []
+    VarExpr (NameRef n) -> resolveExprName n
     VarExpr v -> VarExpr <$> resolveRef v
     FuncCall n es -> FuncCall <$> resolveFunc n <*> mapM resolveExpr es
-    BinOp e o f -> BinOp <$> resolveExpr e <*> pure o <*> resolveExpr f
-    NotOp e -> NotOp <$> resolveExpr e
-    Negate e -> Negate <$> resolveExpr e
+    BinOp x o y -> BinOp <$> resolveExpr x <*> pure o <*> resolveExpr y
+    NotOp x -> NotOp <$> resolveExpr x
+    Negate x -> Negate <$> resolveExpr x
+
+resolveExprName :: Name -> VarM (Expr Scoped)
+resolveExprName n = do
+    r <- asks $ Map.lookup n
+    return $ case r of
+                Nothing -> FuncCall (BuiltinFunc n) []
+                Just (ResolvedFunc f) -> FuncCall (DefinedFunc f) []
+                Just (ResolvedVar v) -> VarExpr (NameRef v)

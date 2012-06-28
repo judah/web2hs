@@ -20,11 +20,14 @@ instance Pretty Integer where
 
 -----------------------
 
+myhang :: Doc -> Doc -> Doc
 myhang x = hang x 2
 
-class (Pretty (VarID s), Pretty (FuncID s), Pretty (FuncCallID s)) => PrettyID s
+class (Pretty (VarID s), Pretty (FuncID s), Pretty (FuncCallID s),
+        Pretty (LValueRef s) ) => PrettyID s
 
-instance (Pretty (VarID s), Pretty (FuncID s), Pretty (FuncCallID s)) => PrettyID s
+instance (Pretty (VarID s), Pretty (FuncID s), Pretty (FuncCallID s),
+        Pretty (LValueRef s) ) => PrettyID s
 
 instance (PrettyID v, Pretty t) => Pretty (Program v t) where
     pretty Program{..} = 
@@ -200,7 +203,7 @@ instance Pretty ConstValue where
         escape c = [c]
 
 instance Pretty Rational where
-    pretty = text . show . fromRational
+    pretty = text . show . (fromRational :: Rational -> Double)
 
 ----------------
 
@@ -225,7 +228,7 @@ instance Pretty t => Pretty (Type t) where
                                 <+> text "of" <+> pretty arrayEltType
     pretty FileType {..} = text "file" <+> text "of" <+> pretty fileEltType
     pretty (PointerType t) = text "^" <> pretty t
-    pretty (RecordType n FieldList {..}) = myhang (text "record") internals $$ text "end"
+    pretty (RecordType _ FieldList {..}) = myhang (text "record") internals $$ text "end"
       where
         internals = case variantPart of
                         Nothing -> prettyFields fixedPart
@@ -249,17 +252,23 @@ prettyVariant Variant {..} = myhang (text "case" <+> pretty variantSelector
 ---------------
 
 instance Pretty Var where
-    pretty FuncReturn {..} = pretty varFuncReturnId <> text "_ret"
-    pretty v = text (varName v) <> text "_" <> pretty (varUnique v)
-                <> case v of
-                    Var {varScope=Global} -> text "g"
-                    Var {varScope=Local} -> text "l"
-                    Const {} -> text "c"
-                    FuncReturn {} -> text "r"
-                    
+    pretty Var {..} = text varName <> text "_" <> pretty varUnique
+                <> case varScope of
+                    Global -> text "g"
+                    Local -> text "l"
+    pretty Const {..} = pretty constName <> text "_" <> pretty constUnique
+                        <> text "c"
+                        
 instance Pretty Func where
     pretty Func {..} = pretty funcVarName <> text "_" <> pretty funcUnique
 
 instance Pretty FuncCall where
     pretty (DefinedFunc f) = pretty  f
     pretty (BuiltinFunc f) = pretty f <> text "_builtin"
+
+instance Pretty FuncReturn where
+    pretty FuncReturn {..} = pretty varFuncReturnId <> text "_ret"
+
+instance Pretty LValue where
+    pretty (VLValue v) = pretty v
+    pretty (FLValue f) = pretty f

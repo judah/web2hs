@@ -1,6 +1,8 @@
 -- | This module defines an AST for the subset of Pascal used by TeX and friends.
 module Language.Pascal.Syntax where
 
+import Control.Arrow (second)
+
 type Name = String
 
 type Label = Integer
@@ -18,7 +20,6 @@ data Program v t = Program {
 
 data Block v t = Block {
                 blockLabels :: [Label],
-                -- TODO: remember var/const uniques here
                 blockConstants :: [(VarID v,ConstValue)],
                 blockTypes :: [(Name,Type t)],
                 blockVars :: [(VarID v,Type t)],
@@ -50,7 +51,7 @@ type StatementList v = [Statement v]
 type Statement v = (Maybe Label,StatementBase v)
 
 data StatementBase v =
-               AssignStmt {assignTarget :: VarReference v, assignExpr :: Expr v}
+               AssignStmt {assignTarget :: LValueRef v, assignExpr :: Expr v}
                | ProcedureCall {funName :: FuncCallID v, procArgs :: [Expr v]}
                | IfStmt { ifCond :: Expr v, thenStmt :: Statement v,
                             elseStmt :: Maybe (Statement v)}
@@ -123,6 +124,25 @@ data Type t
     | PointerType (Type t)
         deriving (Eq, Show)
 
+instance Functor Type where
+    fmap f (BaseType t) = BaseType (f t)
+    fmap _ RealType = RealType
+    fmap f ArrayType {..} = ArrayType (fmap f arrayIndexType)
+                                (fmap f arrayEltType)
+    fmap f (FileType t) = FileType (fmap f t)
+    fmap f (PointerType t) = PointerType (fmap f t)
+    fmap f RecordType {recordFields=FieldList{..},..}
+        = RecordType {recordFields=FieldList
+                        { fixedPart = mapFields fixedPart
+                        , variantPart = fmap mapVariant variantPart
+                        },..}
+      where
+        mapFields = map (second $ fmap f)
+        mapVariant Variant {..} = Variant
+            { variantSelector = fmap f variantSelector
+            , variantFields = map (second $ mapFields) variantFields
+            }
+
 --  NOTE: TeX only requires a subset of Pascal's record functionality.
 data FieldList t = FieldList {
                         fixedPart :: Fields t,
@@ -143,7 +163,7 @@ lookupField :: Name -> FieldList t -> Maybe (Either (Type t) (Integer,Type t))
 lookupField n FieldList {..}
     | Just t <- lookup n fixedPart = Just (Left t)
     | Just Variant {..} <- variantPart
-    , (r:rs) <- [(k,t)| (k,fs) <- variantFields, (n',t) <- fs, n==n']
+    , (r:_) <- [(k,t)| (k,fs) <- variantFields, (n',t) <- fs, n==n']
             = Just (Right r)
     | otherwise = Nothing
 
@@ -183,14 +203,17 @@ data Unscoped
 type family VarID v :: *
 type family FuncID v :: *
 type family FuncCallID v :: *
+type family LValueRef v :: *
 
 type instance VarID Unscoped = Name
 type instance FuncID Unscoped = Name
 type instance FuncCallID Unscoped = Name
+type instance LValueRef Unscoped = VarReference Unscoped
 
 type instance VarID Scoped = Var
 type instance FuncID Scoped = Func
 type instance FuncCallID Scoped = FuncCall
+type instance LValueRef Scoped = LValue
 
 data FuncCall = DefinedFunc Func | BuiltinFunc Name
 
@@ -206,12 +229,13 @@ data Var = Var
             , varType :: Type Ordinal
             , varScope :: Scope
             }
-            | Const
-                { varName :: Name
-                , varUnique :: Integer
-                , varValue :: ConstValue
-                }
-            | FuncReturn
+          | Const
+            { constName :: Name
+            , constUnique :: Integer
+            , constValue :: ConstValue
+            }
+
+data FuncReturn = FuncReturn
                 { varFuncReturnId :: Func
                 , varFuncReturnType :: Type Ordinal
                 }
@@ -219,3 +243,4 @@ data Var = Var
 data Scope = Local | Global
             deriving Show
 
+data LValue = VLValue (VarReference Scoped) | FLValue FuncReturn

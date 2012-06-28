@@ -6,7 +6,6 @@ import Language.Pascal.Typecheck
 import Text.PrettyPrint.HughesPJ
 import Data.Monoid hiding ( (<>) )
 import Numeric
-import Data.Maybe (catMaybes, isNothing)
 import Data.List ((\\))
 import Foreign.C.Types (CChar)
 
@@ -64,7 +63,7 @@ cType ArrayType {..} v
     = cType arrayEltType 
         (v <> hcat (map (brackets . pretty . ordSize)
                                     arrayIndexType))
-cType (FileType b) v = text "FILE *" <+> v
+cType (FileType _) v = text "FILE *" <+> v
 cType (PointerType t) v = cType t (text "*" <> v)
 cType RecordType { recordName = Just n } v = pretty n <+> v
 cType RecordType { ..} v = cRecordType recordFields <+> v
@@ -234,6 +233,8 @@ progArgType v@Var{..} w
     | isFileVar v  = text "char *" <> w
     | isRecordVar v = cType varType (pretty "*" <> w)
     | otherwise = cType varType w
+progArgType c@Const{..} _ = error $ "progArgType: shouldn't happen: constant arg "
+                            ++ show (pretty c)
 
 -----------------------------------------------
 -- Labels come in two varieties:
@@ -270,7 +271,7 @@ Then, we turn Pascal gotos in the main program into "goto lab"
 and we turn Pascal gotos in subfunctions into "longjmp(..)".
 -}
 programStatements :: [Label] -> [Statement Scoped] -> Doc
-programStatements jmpLabels ss = loop (reverse ss)
+programStatements jmpLabels = loop . reverse
   where
     loop [] = empty
     loop ((Nothing,s):ss)
@@ -344,8 +345,10 @@ generateStatement ls (Just l, s) = hang (labelID l <> colon) 2
 
 generateStatementBase :: [Label] -> StatementBase Scoped -> Doc
 generateStatementBase jmpLabels s = case s of
-    AssignStmt v e
+    AssignStmt (VLValue v) e
         -> generateRef v <+> equals <+> generateExpr e
+    AssignStmt (FLValue f) e
+        -> pretty f <+> equals <+> generateExpr e
     ProcedureCall (DefinedFunc f) args -> callFunction f args
     ProcedureCall (BuiltinFunc f) args -> generateBuiltin f args
     IfStmt {..} -> braceBlock (text "if"
@@ -353,8 +356,8 @@ generateStatementBase jmpLabels s = case s of
                     (generateStatement jmpLabels thenStmt)
                     $+$ case elseStmt of
                           Nothing -> mempty
-                          Just s -> braceBlock (text "else")
-                                        (generateStatement jmpLabels s)
+                          Just s' -> braceBlock (text "else")
+                                        (generateStatement jmpLabels s')
     ForStmt {..} -> forStmt loopVar forStart forEnd forDirection
                         $ generateStatement jmpLabels forBody
     WhileStmt {..}
@@ -374,7 +377,7 @@ generateStatementBase jmpLabels s = case s of
                                     <+> paramList [labelBuf l, pretty "1"]
         | otherwise -> text "goto" <+> labelID l
     Write {..} -> generateWrite addNewline writeArgs
-    CompoundStmt s -> vcat (map (generateStatement jmpLabels) s)
+    CompoundStmt s' -> vcat (map (generateStatement jmpLabels) s')
     EmptyStatement -> empty
 
 {-
@@ -448,14 +451,15 @@ generateExpr e = case e of
     VarExpr v -> generateRef v
     FuncCall (DefinedFunc f) es -> callFunction f es
     FuncCall (BuiltinFunc f) es -> generateBuiltin f es
-    -- TODO: is this right?
-    -- Treating Divide as always producing a real output.
+    -- Pascal treats Divide as always producing a real output.
+    -- C throws out the remainder when dividing two integers.
+    -- So to keep the remainder, we first cast the inputs to floats.
     BinOp x Divide y -> castFloat (generateExpr x)
                             <> cOp Divide <> castFloat (generateExpr y)
     BinOp x o y -> parens (generateExpr x) 
                         <> cOp o <> parens (generateExpr y)
-    NotOp e -> text "!" <> parens (generateExpr e)
-    Negate e -> text "-" <> parens (generateExpr e)
+    NotOp x -> text "!" <> parens (generateExpr x)
+    Negate x -> text "-" <> parens (generateExpr x)
 
 callFunction :: Func -> [Expr Scoped] -> Doc
 callFunction f es = pretty f
@@ -484,16 +488,15 @@ generateRef (ArrayRef v es)
     = parens (generateRef v) <> arrayAccess v es
 generateRef (RecordRef v n) = parens (generateRef v) <> text "."
                                 <> recordAccess v n
-generateRef (DeRef v) = error "generateRef: file refs not implemented."
+generateRef (DeRef _) = error "generateRef: file refs not implemented."
 
 -- TODO: check it's the right number of indices
 arrayAccess :: VarReference Scoped -> [Expr Scoped] -> Doc
-arrayAccess v es
-    | NameRef Const { varValue = ConstString _ } <- v = indexed $ map generateExpr es
-    | otherwise = case inferRefTypeNonConst v of
-        ArrayType {..}  -> indexed $ zipWith ordAccess arrayIndexType
+arrayAccess v es = case inferRefType v of
+        RefType ArrayType {..}  -> indexed $ zipWith ordAccess arrayIndexType
                                 $ map generateExpr es
-        PointerType _   -> indexed $ map generateExpr es
+        -- Pointers are zero-indexed.
+        RefType (PointerType _)   -> indexed $ map generateExpr es
         _               -> error ("accessing " ++ show (pretty v) ++ " as array")
   where
     indexed = hcat . map brackets
@@ -505,7 +508,7 @@ ordAccess o e
 
 recordAccess :: VarReference Scoped -> Name -> Doc
 recordAccess v n
-    | RecordType {..} <- inferRefTypeNonConst v
+    | RefType RecordType {..} <- inferRefType v
         = case lookupField n recordFields of
             Just (Left _) -> prettyField n
             Just (Right (k,_)) -> text "variant.var" <> pretty k
@@ -535,8 +538,7 @@ cOp GTEQ = text ">="
 
 generateWrite :: Bool -> [WriteArg Scoped] -> Doc
 generateWrite addNewline writeArgs = case writeArgs of
-    w:ws | FileType t <- inferExprType (writeExpr w)
-            , t `elem` map BaseType [IntegralType, CharType]
+    w:ws | FileType _ <- inferExprType (writeExpr w)
         -> text "fprintf"
             <> parens (commaList $ generateExpr (writeExpr w) : printfArgs ws)
     _ -> text "printf" <> parens (commaList $ printfArgs writeArgs)
@@ -547,9 +549,8 @@ generateWrite addNewline writeArgs = case writeArgs of
     endLine = if addNewline then "\\n" else ""
     mkArg :: WriteArg Scoped -> (String,Doc)
     mkArg WriteArg {..} = case inferExprType writeExpr of
-        BaseType StringType -> ("%s", generateExpr writeExpr)
         BaseType CharType -> ("%c", generateExpr writeExpr)
-        BaseType IntegralType -> case widthAndDigits of
+        BaseType UnrangedInt -> case widthAndDigits of
             Nothing -> ("%c",generateExpr writeExpr)
             Just (k,Nothing) 
                 -> ("%" ++ show (extractConstInt k) ++ "d"
@@ -580,7 +581,7 @@ generateWrite addNewline writeArgs = case writeArgs of
 
 extractConstInt :: Expr Scoped -> Integer
 extractConstInt (ConstExpr (ConstInt n)) = n
-extractConstInt (VarExpr (NameRef Const {varValue = ConstInt n})) = n
+extractConstInt (VarExpr (NameRef Const {constValue=ConstInt n})) = n
 extractConstInt c = error ("unable to get constant int from expression "
                             ++ show (pretty c))
 
@@ -648,7 +649,6 @@ openForRead f es = pretty f <+> equals <+> case es of
 openForWrite :: Expr Scoped -> [Expr Scoped] -> Doc
 openForWrite f es = pretty f <+> equals <+> case es of
     [] | VarExpr (NameRef v) <- f -> fopen (progGlobalVar v)
-    -- TODO: why wasn't this called?
     (ConstExpr (ConstString "TTY:"):_) -> text "stdout"
     [e] -> fopen (generateExpr e)
     [e,ConstExpr (ConstString "/O")] -> fopen (generateExpr e)
