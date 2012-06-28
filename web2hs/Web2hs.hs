@@ -2,7 +2,6 @@ module Main where
 
 import qualified Language.Pascal.Parser as Parser
 import Language.Pascal.Lexer
-import Language.Pascal.Syntax
 import Language.Pascal.Transform
 import Language.Pascal.Pretty
 import Language.Pascal.GenerateC
@@ -10,9 +9,7 @@ import Text.PrettyPrint.HughesPJ
 
 import System.Console.CmdArgs
 
-import Control.Monad
 import System.FilePath
-import System.Environment
 import System.Exit (exitFailure)
 
 data Options = Options {
@@ -21,6 +18,7 @@ data Options = Options {
         pascalDumpFile :: Maybe String
     } deriving (Show,Typeable,Data)
 
+getOptions :: IO Options
 getOptions = cmdArgs $
                 Options
                     { inputFile = def &= argPos 0
@@ -34,7 +32,7 @@ getOptions = cmdArgs $
                         &= opt (Nothing::Maybe String)
                     } &= program "web2hs"
 
-
+main :: IO ()
 main = do
     Options {..} <- getOptions
     old <- readFile inputFile
