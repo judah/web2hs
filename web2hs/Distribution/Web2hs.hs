@@ -3,16 +3,18 @@ module Distribution.Web2hs(web2hsUserHooks) where
 import Distribution.Simple
 import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Utils (createDirectoryIfMissingVerbose)
-import Distribution.Simple.Setup (fromFlag, buildVerbosity)
+import Distribution.Simple.Setup (fromFlag, buildVerbosity, BuildFlags)
 import Distribution.PackageDescription
 import System.Process (readProcessWithExitCode, showCommandForUser)
 import System.Exit (ExitCode(..), exitWith)
 import System.FilePath (replaceExtension, takeBaseName, (<.>), (</>) )
 import System.IO (hPutStr, hPutStrLn, stderr, stdout)
-import Control.Monad (when, forM)
+import Control.Monad (when)
+import Data.Traversable (forM)
+import Data.List (nub)
 
-web2hsWebFiles :: Executable -> [String]
-web2hsWebFiles e = [f | ("x-web2hs-source",f) <- customFieldsBI $ buildInfo e]
+web2hsWebFiles :: BuildInfo -> [String]
+web2hsWebFiles e = [f | ("x-web2hs-source",f) <- customFieldsBI e]
 
 -- Keep all generated files for all executables in one folder.
 -- This way we can get at all of the .pool files at once.
@@ -36,32 +38,42 @@ tangleProgram p = let
 web2hsUserHooks :: UserHooks -> UserHooks
 web2hsUserHooks hooks = hooks
     { buildHook = \pd lbi hooks' flags -> do
+        putStrLn "Preprocessing WEB files..."
         exes <- forM (executables pd) $ \exe -> do
-                    let bi = buildInfo exe
-                    let verbosity = fromFlag (buildVerbosity flags)
-                    let parent = web2hsBuildDir lbi
-                    createDirectoryIfMissingVerbose verbosity True parent
-                    cFiles <- forM (web2hsWebFiles exe) $ \f -> do
-                                let cOutput = parent </> takeBaseName f <.> "c"
-                                generateC (tangleProgram pd) f cOutput
-                                return cOutput
-                    return exe { buildInfo = bi
-                                    { cSources = cFiles ++ cSources bi
-                                    , includeDirs = parent : includeDirs bi
-                                    } 
-                               }
+                    bi <- preprocessBuildInfo lbi flags $ buildInfo exe
+                    return exe {buildInfo = bi}
+        maybe_lib <- forM (library pd) $ \lib -> do
+                    bi <- preprocessBuildInfo lbi flags $ libBuildInfo lib
+                    return lib {libBuildInfo = bi}
+        -- TODO: nub
         buildHook hooks
-            pd { executables = exes }
+            pd { executables = exes, library = maybe_lib }
             lbi hooks' flags
     , copyHook = copyWithPool (copyHook hooks)
     , instHook = copyWithPool (instHook hooks)
     }
 
+preprocessBuildInfo :: LocalBuildInfo -> BuildFlags -> BuildInfo -> IO BuildInfo
+preprocessBuildInfo lbi flags bi = do
+    let verbosity = fromFlag (buildVerbosity flags)
+    let parent = web2hsBuildDir lbi
+    createDirectoryIfMissingVerbose verbosity True parent
+    cFiles <- forM (web2hsWebFiles bi) $ \f -> do
+                let cOutput = parent </> takeBaseName f <.> "c"
+                generateC (tangleProgram $ localPkgDescr lbi) f cOutput
+                return cOutput
+    return bi
+            { cSources = cFiles ++ cSources bi
+            , includeDirs = parent : includeDirs bi
+            }
+ 
+
 -- Copy the .pool files so they can be accessed from the executable as data files.
 copyWithPool act pd lbi hooks' flags = do
             let poolDir = web2hsBuildDir lbi
-            let poolFiles = [replaceExtension f "pool"
-                             | exe <- executables pd, f <- web2hsWebFiles exe]
+            let webFiles = [f | exe <- executables pd, f <- web2hsWebFiles $ buildInfo exe]
+                        ++ maybe [] (web2hsWebFiles . libBuildInfo) (library pd)
+            let poolFiles = nub $ map (flip replaceExtension "pool") webFiles
             act pd { dataFiles = poolFiles 
                    , dataDir = poolDir
                    }
