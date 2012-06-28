@@ -20,8 +20,6 @@ Library
         Language.Pascal.Transform
         Language.Pascal.Pretty
         Language.Pascal.Typecheck
-        Language.Pascal.Interpreter.Base
-        Language.Pascal.Interpreter.Builtins
         Language.Pascal.GenerateC
         Distribution.Web2hs
   
