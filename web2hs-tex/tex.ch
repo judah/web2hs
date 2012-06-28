@@ -198,6 +198,13 @@ for k:=name_length+1 to file_name_size do name_of_file[k]:=chr(0);
 @!TEX_format_default:^char;
 @z
 
+% [521]
+@x
+TEX_format_default:='TeXformats:plain.fmt';
+@y
+TEX_format_default:='TeXformats/plain.fmt';
+@z
+
 % [523]
 % Track the change of TEX_format_default into a C-string (indexed starting at 0)
 % instead of an array (indexed starting at 1).
