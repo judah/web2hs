@@ -39,7 +39,7 @@ main = do
     Options {..} <- getOptions
     old <- readFile inputFile
     case runAlex old Parser.program of
-        Left err -> print err >> exitFailure
+        Left err -> putStrLn err >> exitFailure
         Right s -> do
             let transformed = resolveProgram
                                 $ flattenProgram s

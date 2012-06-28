@@ -90,6 +90,10 @@ $digit+ "." $digit+         { tok1 $ TokReal . readReal}
 
 "-"             { tok TokMinus }
 
+-- Final case: catch errors, since the alex "monad" wrapper doesn't print
+-- a position for lexer errors.
+.               { unexpectedInput }
+
 {
 data Token 
     = TokInt Integer
@@ -172,14 +176,20 @@ tok t _ _ = return t
 tok1 :: (String -> Token) -> AlexAction Token
 tok1 f i@(_,_,_,s) len = return $ f (take len s)
 
+unexpectedInput :: AlexAction Token
+unexpectedInput i@(_,_,_,s) len = lexerError (inputPos i)
+                                    $ "unexpected input "
+                                    ++ show (take len s)
+
 alexEOF = return TokEOF
 
 type Pos = (Int,Int)
 
 getPosition :: Alex Pos
 getPosition = liftM inputPos alexGetInput
-  where
-    inputPos (AlexPn _ l c,_,_,_) = (l,c)
+
+inputPos :: AlexInput -> Pos
+inputPos (AlexPn _ l c,_,_,_) = (l,c)
 
 lexerError :: Pos -> String -> Alex a
 lexerError p s = do
