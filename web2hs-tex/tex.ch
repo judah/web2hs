@@ -1,3 +1,13 @@
+% [4]
+% Program arguments:
+% first_line: either NULL or a null-terminated C-string.
+%     If nonempty/nonblank, it is used as the first line of input.
+@x
+program TEX; {all file names are defined dynamically}
+@y
+program TEX(first_line); {all file names are defined dynamically}
+@z
+
 % [11]
 % Make pool_name point to the local file "tex.pool".
 @x
@@ -11,17 +21,135 @@
   {string of length |pool_name_size|; tells where the string pool appears}
 @z
 
+% [31]
+% Modified input_ln to always "get" the trailing newline.
+% 
+% TODO: make this a custom C function.
+@x
+@p function input_ln(var f:alpha_file;@!bypass_eoln:boolean):boolean;
+  {inputs the next line or returns |false|}
+var last_nonblank:0..buf_size; {|last| with trailing blanks removed}
+begin if bypass_eoln then if not eof(f) then get(f);
+  {input the first character of the line into |f^|}
+last:=first; {cf.\ Matthew 19\thinspace:\thinspace30}
+if eof(f) then input_ln:=false
+else  begin last_nonblank:=first;
+  while not eoln(f) do
+    begin if last>=max_buf_stack then
+      begin max_buf_stack:=last+1;
+      if max_buf_stack=buf_size then
+        @<Report overflow of the input buffer, and abort@>;
+      end;
+    buffer[last]:=xord[f^]; get(f); incr(last);
+    if buffer[last-1]<>" " then last_nonblank:=last;
+    end;
+  last:=last_nonblank; input_ln:=true;
+  end;
+end;
+@y
+@p function input_ln(var f:alpha_file;@!bypass_eoln:boolean):boolean;
+  {inputs the next line or returns |false|}
+var last_nonblank:0..buf_size; {|last| with trailing blanks removed}
+begin
+last:=first; {cf.\ Matthew 19\thinspace:\thinspace30}
+if eof(f) then input_ln:=false
+else  begin last_nonblank:=first;
+  while not eoln(f) do
+    begin if last>=max_buf_stack then
+      begin max_buf_stack:=last+1;
+      if max_buf_stack=buf_size then
+        @<Report overflow of the input buffer, and abort@>;
+      end;
+    buffer[last]:=xord[f^]; get(f); incr(last);
+    if buffer[last-1]<>" " then last_nonblank:=last;
+    end;
+  last:=last_nonblank; input_ln:=true;
+  end;
+  { Skip trailing newline, if there is one. }
+  if not eof(f) and eoln(f) then get(f);
+end;
+@z
+
+% [32]
+% Add a global variable for the first_line program argument.
+@x
+@!term_in:alpha_file; {the terminal as an input file}
+@y
+@!term_in:alpha_file; {the terminal as an input file}
+@!first_line:^ASCII_code; { null-terminated string of arguments }
+@z
+
 % [37]
+% A couple changes when reading the first line of input:
+% Use the specified first_line, if it's available and not empty.
+% Also, make 
 % Don't call get(term_in) at the start of the program.  Otherwise, we would
 % ignore the first character of input.
 @x
+@p function init_terminal:boolean; {gets the terminal input started}
+label exit;
+begin t_open_in;
+loop@+begin wake_up_terminal; write(term_out,'**'); update_terminal;
+@.**@>
   if not input_ln(term_in,true) then {this shouldn't happen}
     begin write_ln(term_out);
     write(term_out,'! End of file on the terminal... why?');
+@.End of file on the terminal@>
+    init_terminal:=false; return;
+    end;
+  loc:=first;
+  while (loc<last)and(buffer[loc]=" ") do incr(loc);
+  if loc<last then
+    begin init_terminal:=true;
+    return; {return unless the line was all blank}
+    end;
+  write_ln(term_out,'Please type the name of your input file.');
+  end;
+exit:end;
 @y
-  if not input_ln(term_in,false) then {this shouldn't happen}
+@p function init_terminal:boolean; {gets the terminal input started}
+label exit;
+begin t_open_in;
+{ Try to use the manual first_line argument, if provided. }
+if (first_line <> 0) then begin
+  { Copy the first_line into the buffer }
+  last:=first;
+  while first_line[last-first]<> 0 do begin
+     { Check for overflow }
+    if last+1>=buf_size then begin
+      write_ln(term_out, 'Buffer size exceeded!'); goto final_end;
+    end;
+    buffer[last]:=first_line[last-first];
+    incr(last);
+  end;
+  { Look for the first nonblank character.  If first_line
+    wasn't completely blank, we're done. }
+  loc:=first;
+  while (loc<last)and(buffer[loc]=" ") do incr(loc);
+  if loc<last then 
+    begin
+      init_terminal:=true;
+      return;
+    end;
+end;
+{ Read the first line from the terminal }
+loop@+begin wake_up_terminal; write(term_out,'**'); update_terminal;
+@.**@>
+  if not input_ln(term_in,true) then {this shouldn't happen}
     begin write_ln(term_out);
     write_ln(term_out,'! End of file on the terminal... why?');
+@.End of file on the terminal@>
+    init_terminal:=false; return;
+    end;
+  loc:=first;
+  while (loc<last)and(buffer[loc]=" ") do incr(loc);
+  if loc<last then
+    begin init_terminal:=true;
+    return; {return unless the line was all blank}
+    end;
+  write_ln(term_out,'Please type the name of your input file.');
+  end;
+exit:end;
 @z
 
 % [51]
