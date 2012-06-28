@@ -1,24 +1,27 @@
 % [4]
 % Program arguments:
+% pool_path: null-terminated path to tex.pool
 % first_line: either NULL or a null-terminated C-string.
 %     If nonempty/nonblank, it is used as the first line of input.
 @x
 program TEX; {all file names are defined dynamically}
 @y
-program TEX(first_line); {all file names are defined dynamically}
+program TEX(pool_path, first_line); {all file names are defined dynamically}
 @z
 
 % [11]
-% Make pool_name point to the local file "tex.pool".
+% - Use a larger file name size.
+% - Don't need the pool_name variable anymore.
 @x
 @!file_name_size=40; {file names shouldn't be longer than this}
+@y
+@!file_name_size=200; {file names shouldn't be longer than this}
+@z
+
+@x
 @!pool_name='TeXformats:TEX.POOL                     ';
   {string of length |file_name_size|; tells where the string pool appears}
 @y
-@!file_name_size=200; {file names shouldn't be longer than this}
-@!pool_name_size=8;
-@!pool_name='tex.pool';
-  {string of length |pool_name_size|; tells where the string pool appears}
 @z
 
 % [31]
@@ -71,12 +74,13 @@ end;
 @z
 
 % [32]
-% Add a global variable for the first_line program argument.
+% Add global variables for the program arguments.
 @x
 @!term_in:alpha_file; {the terminal as an input file}
 @y
 @!term_in:alpha_file; {the terminal as an input file}
-@!first_line:^ASCII_code; { null-terminated string of arguments }
+@!pool_path: ^char;
+@!first_line:^ASCII_code;
 @z
 
 % [37]
@@ -153,13 +157,15 @@ exit:end;
 @z
 
 % [51]
-% Explicitly copy the pool_name C-string into the name_of_file buffer.
+% Explicitly copy the pool_path C-string into the name_of_file buffer.
 @x
 name_of_file:=pool_name; {we needn't set |name_length|}
 @y
-for k:=1 to pool_name_size do name_of_file[k] := pool_name[k-1];
-name_of_file[k+1] := chr(0); {we needn't set |name_length|}
-web2hs_find_cached(name_of_file,name_of_file,file_name_size);
+k:=0;
+repeat
+  name_of_file[k+1] := pool_path[k];
+  incr(k);
+  until pool_path[k-1] = 0;
 @z
 
 % [514]
