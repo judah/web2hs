@@ -241,7 +241,10 @@ constValue :: { ConstValue }
 nonnegConstValue
     : nonnegint   { ConstInt $1 }
     | nonnegreal  { ConstReal $1 }
-    | stringConst { ConstString $1 }
+    | stringConst { case $1 of
+                      [c] -> ConstChar c
+                      _ -> ConstString $1
+                  }
     | '+' nonnegint { ConstInt $2 }
 
 

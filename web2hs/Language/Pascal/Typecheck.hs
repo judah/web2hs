@@ -30,6 +30,7 @@ inferExprType (ConstExpr c) = case c of
                                 ConstInt _ -> BaseType UnrangedInt
                                 ConstReal _ -> RealType
                                 ConstString _ -> PointerType (BaseType CharType)
+                                ConstChar _ -> BaseType CharType
 inferExprType (VarExpr v) = case inferRefType v of
                                 UnboundedIntRef -> BaseType UnrangedInt
                                 RefType t -> exprType t
@@ -69,6 +70,7 @@ inferRefType (NameRef Var{..}) = RefType varType
 inferRefType (NameRef Const{..}) = case constValue of
                                     ConstReal _ -> RefType RealType
                                     ConstInt _ -> UnboundedIntRef
+                                    ConstChar _ -> RefType $ BaseType OrdinalChar
                                     ConstString _ -> RefType $ PointerType
                                                         $ BaseType OrdinalChar
 inferRefType (DeRef v)

@@ -144,6 +144,7 @@ declareConstant (v,c)
   where
     constType (ConstInt _) = text "int" -- TODO
     constType (ConstReal _) = text "float"
+    constType (ConstChar _) = text "char"
     constType (ConstString _) = text "char*"
 
 declareVar :: (Var,Type Ordinal) -> Doc
@@ -476,8 +477,8 @@ castFloat e = text "(float)" <> parens e
 
 generateConstValue :: ConstValue -> Doc
 generateConstValue (ConstInt n) = pretty n
-generateConstValue (ConstString [c]) = text $ show c
 -- quote/escape using the Show Char and Show String instances
+generateConstValue (ConstChar c) = text $ show c
 generateConstValue (ConstString s) = text $ show s
 generateConstValue (ConstReal r)
     = pretty $ showFFloat Nothing (realToFrac r :: Double) ""

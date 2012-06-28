@@ -104,6 +104,7 @@ data Expr v
 
 data ConstValue = ConstInt Integer
                 | ConstReal Rational
+                | ConstChar Char
                 | ConstString String
 
 data BinOp = Plus | Minus | Times | Divide | Div | Mod

@@ -197,6 +197,7 @@ instance Pretty ConstValue where
     pretty (ConstInt n) = pretty n
     pretty (ConstReal n) = pretty n
     -- Pascal escapes a single-quote with a double-quote.
+    pretty (ConstChar c) = pretty (ConstString [c])
     pretty (ConstString s) = quotes $ text $ concatMap escape s
       where
         escape '\'' = "''"
