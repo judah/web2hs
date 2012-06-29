@@ -7,7 +7,8 @@ module Language.Pascal.Typecheck(
                             ) where
 
 import Language.Pascal.Syntax
-import Language.Pascal.Pretty
+import Language.Pascal.Pretty.Base
+import Language.Pascal.Pretty.Pascal
 
 -- This module lets us find the type of a given expression.
 -- Its main uses in Language.Pascal.GenerateC are to:
@@ -39,17 +40,17 @@ inferExprType (FuncCall f _) = exprType $ inferFuncType f
 inferExprType (BinOp _ Divide _) = RealType
 inferExprType e@(BinOp e1 _ e2)
     | Just t <- joinTypes (inferExprType e1) (inferExprType e2) = t
-    | otherwise = error $ "can't join types in " ++ show (pretty e)
+    | otherwise = error $ "can't join types in " ++ showPascal e
 inferExprType (NotOp e) = inferExprType e
 inferExprType (Negate e) = inferExprType e
 
 inferFuncType :: FuncCall -> OrdType
 inferFuncType b@(BuiltinFunc _)
-    = error $ "can't infer type of builtin " ++ show (pretty b)
+    = error $ "can't infer type of builtin " ++ showPascal b
 inferFuncType (DefinedFunc f)
     | Just t <- funcReturnType (funcVarHeading f) = t
     | otherwise = error $ "can't infer return type for procedure "
-                            ++ show (pretty f)
+                            ++ showPascal f
 
 
 -- TODO: we're currently ignoring some cases which should be errors,
@@ -76,21 +77,21 @@ inferRefType (NameRef Const{..}) = case constValue of
 inferRefType (DeRef v)
     = case inferRefType v of
         RefType (FileType t) -> RefType t
-        _ -> error $ "deref of non-file: " ++ show (pretty v)
+        _ -> error $ "deref of non-file: " ++ showPascal v
 inferRefType r@(ArrayRef v es)
     = case inferRefType v of
         RefType ArrayType {..}
             | length arrayIndexType == length es -> RefType arrayEltType
             | otherwise -> error $ "array ref: index mismatch: "
-                                    ++ show (pretty r)
+                                    ++ showPascal r
         RefType (PointerType t)
             | length es==1 -> RefType t
-        _ -> error $ "array ref: not an array: " ++ show (pretty r)
+        _ -> error $ "array ref: not an array: " ++ showPascal r
 inferRefType r@(RecordRef v n)
     = case inferRefType v of
         RefType RecordType {..} -> RefType $ case lookupField n recordFields of
                 Just (Left t) -> t
                 Just (Right (_,t)) -> t
                 Nothing -> error $ "record ref: unknown field: "
-                                    ++ show (pretty r)
-        _ -> error $ "record ref: not a record: " ++ show (pretty r)
+                                    ++ showPascal r
+        _ -> error $ "record ref: not a record: " ++ showPascal r

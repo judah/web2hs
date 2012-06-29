@@ -1,10 +1,9 @@
-module Language.Pascal.GenerateC where
+module Language.Pascal.Pretty.C where
 
 import Language.Pascal.Syntax
-import Language.Pascal.Pretty
+import Language.Pascal.Pretty.Base
+import Language.Pascal.Pretty.Pascal
 import Language.Pascal.Typecheck
-import Text.PrettyPrint.HughesPJ
-import Data.Monoid hiding ( (<>) )
 import Numeric
 import Data.List ((\\))
 import Foreign.C.Types (CChar)
@@ -45,26 +44,35 @@ An overview of how this works:
 -------------
 -- Generic utilities
 
-braceBlock :: Doc -> Doc -> Doc
-braceBlock head body = (head <+> text "{") $+$ nest 2 body
-                            $+$ text "}"
+braceBlock :: Doc C -> Doc C -> Doc C
+braceBlock head body = (head <+> pretty "{") $+$ nest 2 body
+                            $+$ pretty "}"
 
-mapSemis :: (a -> Doc) -> [a] -> Doc
+mapSemis :: (a -> Doc C) -> [a] -> Doc C
 mapSemis f xs = vcat $ map (\x -> f x <> semi) xs
+
+paramList :: Pretty C a => [a] -> Doc C
+paramList = parens . commaList
+
+-------------
+-- C type
+data C
+prettyC :: Pretty C a => a -> Doc C
+prettyC = pretty
 
 ----------------
 -- Types
 
 -- Generate a variable declaration, e.g. "int v" or "FILE *x"
-cType :: OrdType -> Doc -> Doc
-cType (BaseType o) v = text (ordinalCName o) <+> v
-cType RealType v = text "float" <+> v
+cType :: OrdType -> Doc C -> Doc C
+cType (BaseType o) v = pretty (ordinalCName o) <+> v
+cType RealType v = pretty "float" <+> v
 cType ArrayType {..} v
     = cType arrayEltType 
         (v <> hcat (map (brackets . pretty . ordSize)
                                     arrayIndexType))
-cType (FileType _) v = text "FILE *" <+> v
-cType (PointerType t) v = cType t (text "*" <> v)
+cType (FileType _) v = pretty "FILE *" <+> v
+cType (PointerType t) v = cType t (pretty "*" <> v)
 cType RecordType { recordName = Just n } v = pretty n <+> v
 cType RecordType { ..} v = cRecordType recordFields <+> v
 
@@ -120,42 +128,39 @@ struct {
 
 -}
 
-cRecordType :: FieldList Ordinal -> Doc
+cRecordType :: FieldList Ordinal -> Doc C
 cRecordType FieldList {..}
-    = braceBlock (text "struct") (
+    = braceBlock (pretty "struct") (
                 mapSemis cField fixedPart
                 $$ maybe empty unionType variantPart)
   where
     cField (n,t) = cType t (prettyField n) 
     unionType Variant {..}
-        = braceBlock (text "union") (mapSemis vField variantFields)
-                <+> text "variant" <> semi
-    vField (i,fs) = braceBlock (text "struct") (mapSemis cField fs)
-                        <+> text "var" <> pretty i
+        = braceBlock (pretty "union") (mapSemis vField variantFields)
+                <+> pretty "variant" <> semi
+    vField (i,fs) = braceBlock (pretty "struct") (mapSemis cField fs)
+                        <+> pretty "var" <> pretty i
 
-prettyField :: Name -> Doc
-prettyField "int" = text "int_"
-prettyField n = text n
+prettyField :: Name -> Doc C
+prettyField "int" = pretty "int_"
+prettyField n = pretty n
 
-star :: Doc
-star = text "*"
-
-declareConstant :: (Var,ConstValue) -> Doc
+declareConstant :: (Var,ConstValue) -> Doc C
 declareConstant (v,c)
-    = text "const" <+> constType c <+> pretty v <+> equals 
-        <+> generateConstValue c
+    = pretty "const" <+> constType c <+> pretty v <+> equals 
+        <+> pretty c
   where
-    constType (ConstInt _) = text "int" -- TODO
-    constType (ConstReal _) = text "float"
-    constType (ConstChar _) = text "char"
-    constType (ConstString _) = text "char*"
+    constType (ConstInt _) = pretty "int" -- TODO
+    constType (ConstReal _) = pretty "float"
+    constType (ConstChar _) = pretty "char"
+    constType (ConstString _) = pretty "char*"
 
-declareVar :: (Var,Type Ordinal) -> Doc
+declareVar :: (Var,Type Ordinal) -> Doc C
 declareVar (v,t) = cType t (pretty v)
 
-declareRecordType :: (Name, FieldList Ordinal) -> Doc
+declareRecordType :: (Name, FieldList Ordinal) -> Doc C
 declareRecordType (n,fs)
-    = text "typedef" 
+    = pretty "typedef" 
         <+> cType (RecordType Nothing fs) (pretty n)
 
 ----------------------
@@ -165,24 +170,24 @@ declareRecordType (n,fs)
 -- It provides a declaration of the main program function, along with
 -- any necessary record/struct types.
 
-generateHeader :: Program Scoped Ordinal -> Doc
+generateHeader :: Program Scoped Ordinal -> Doc C
 generateHeader Program {progBlock = Block {..},..}
-    =  text "#include <stdio.h>" -- for FILE*
-        $$ text "#include <stdint.h>" -- for u_int8,etc.
+    =  pretty "#include <stdio.h>" -- for FILE*
+        $$ pretty "#include <stdint.h>" -- for u_int8,etc.
         $$ mapSemis declareRecordType [(n,fs) | (n,RecordType {recordFields=fs})
                                                 <- blockTypes]
         $$ head <> semi
   where
     head = pretty "void" <+> pretty progName 
-            <> parens (commaList [progArgType p (progArgVar p) | p <- progArgs])
+            <> paramList [progArgType p (progArgVar p) | p <- progArgs]
 
 ---------------------------
 -- Generating the .c file
 
-generateProgram :: Program Scoped Ordinal -> Doc
+generateProgram :: Program Scoped Ordinal -> Doc C
 generateProgram Program {progBlock = Block{..},..} = let
     head = pretty "void" <+> pretty progName 
-            <> parens (commaList [progArgType p (progArgVar p) | p <- progArgs])
+            <> paramList [progArgType p (progArgVar p) | p <- progArgs]
     jmpLabels = blockLabels
     body = programStatements [] blockStatements -- any jumps would be local
     in cIncludes
@@ -191,33 +196,33 @@ generateProgram Program {progBlock = Block{..},..} = let
                                                 <- blockTypes]
         $$ mapSemis declareVar blockVars
         $$ mapSemis programArgDeclarations progArgs
-        $$ mapSemis (\l -> text "jmp_buf" <+> labelBuf l) jmpLabels
+        $$ mapSemis (\l -> pretty "jmp_buf" <+> labelBuf l) jmpLabels
         $$ vcat (map (generateFunction jmpLabels) blockFunctions)
         $$ braceBlock head 
             (mapSemis programArgInitialization progArgs
                 $$ body)
 
-cIncludes :: Doc
-cIncludes = text "#include \"web2hs_pascal_builtins.h\""
-                $$ text "#include <setjmp.h>"
+cIncludes :: Doc C
+cIncludes = pretty "#include \"web2hs_pascal_builtins.h\""
+                $$ pretty "#include <setjmp.h>"
 
 ---------
 -- Program argument initialization
 
-progArgVar, progGlobalVar :: Var -> Doc
-progArgVar v = pretty v <> text "_progArg"
+progArgVar, progGlobalVar :: Var -> Doc C
+progArgVar v = pretty v <> pretty "_progArg"
 progGlobalVar v
-    | isFileVar v = pretty v <> text "_progGlobal"
+    | isFileVar v = pretty v <> pretty "_progGlobal"
     | otherwise = error $ "argument doesn't need global copy: "
-                    ++ show (pretty v)
+                    ++ showPascal v
 
 
-programArgDeclarations :: Var -> Doc
+programArgDeclarations :: Var -> Doc C
 programArgDeclarations v
     | isFileVar v = progArgType v (progGlobalVar v)
     | otherwise = empty
 
-programArgInitialization :: Var -> Doc
+programArgInitialization :: Var -> Doc C
 programArgInitialization v
     | isRecordVar v = pretty v <+> equals <+> star <> progArgVar v
     | isFileVar v = progGlobalVar v <+> equals <+> progArgVar v
@@ -232,13 +237,13 @@ isRecordVar Var {varType = RecordType {}} = True
 isRecordVar _ = False
 
 
-progArgType :: Var -> Doc -> Doc
+progArgType :: Var -> Doc C -> Doc C
 progArgType v@Var{..} w
-    | isFileVar v  = text "char *" <> w
+    | isFileVar v  = pretty "char *" <> w
     | isRecordVar v = cType varType (pretty "*" <> w)
     | otherwise = cType varType w
 progArgType c@Const{..} _ = error $ "progArgType: shouldn't happen: constant arg "
-                            ++ show (pretty c)
+                            ++ showPascal c
 
 -----------------------------------------------
 -- Labels come in two varieties:
@@ -250,11 +255,11 @@ progArgType c@Const{..} _ = error $ "progArgType: shouldn't happen: constant arg
 --    doesn't define any local variables.
 -- To distinguish the two, the statement-generating functions pass around
 -- a list of labels which should be jumped to via longjmp instead of via goto.
-labelID :: Label -> Doc
-labelID l = text "label_" <> pretty l
+labelID :: Label -> Doc C
+labelID l = pretty "label_" <> pretty l
 
-labelBuf :: Label -> Doc
-labelBuf l = text "label_" <> pretty l <> text "_buf"
+labelBuf :: Label -> Doc C
+labelBuf l = pretty "label_" <> pretty l <> pretty "_buf"
 
 
 {- The goal is for both the main program and other subfunctions
@@ -274,7 +279,7 @@ into:
 Then, we turn Pascal gotos in the main program into "goto lab"
 and we turn Pascal gotos in subfunctions into "longjmp(..)".
 -}
-programStatements :: [Label] -> [Statement Scoped] -> Doc
+programStatements :: [Label] -> [Statement Scoped] -> Doc C
 programStatements jmpLabels = loop . reverse
   where
     loop [] = empty
@@ -282,20 +287,20 @@ programStatements jmpLabels = loop . reverse
         = loop ss $$ generateStatementBase jmpLabels s <> semi
     loop ((Just l,s):ss)
         = braceBlock (jmpTest l) (loop ss)
-            $$ hang (labelID l <> colon) 2
+            $$ myhang (labelID l <> colon)
                 (generateStatementBase jmpLabels s <> semi)
-    jmpTest l = text "if (0==setjmp(" <> labelBuf l <> text "))"
+    jmpTest l = pretty "if (0==setjmp(" <> labelBuf l <> pretty "))"
 
-generateFunction :: [Label] -> FunctionDecl Scoped Ordinal -> Doc
+generateFunction :: [Label] -> FunctionDecl Scoped Ordinal -> Doc C
 generateFunction _ FuncForward {..}
     = generateFuncHeading funcName funcHeading <> semi
 generateFunction jmpLabels FuncDecl {funcBlock=Block{..},..}
     -- We currently don't allow nested types or consts, even though
     -- I believe Pascal does.  (None of the test .web files need them.)
     | not (null blockConstants)
-        = error $ "function " ++ show (pretty funcName) ++ "has nested consts"
+        = error $ "function " ++ showPascal funcName ++ "has nested consts"
     | not (null blockConstants)
-        = error $ "function " ++ show (pretty funcName) ++ "has nested types"
+        = error $ "function " ++ showPascal funcName ++ "has nested types"
     | otherwise = braceBlock (generateFuncHeading funcName funcHeading)
         $ mapSemis declareVar blockVars
         $$ (wrapFuncRet funcName 
@@ -309,27 +314,27 @@ generateFunction jmpLabels FuncDecl {funcBlock=Block{..},..}
 compose :: [a -> a] -> a -> a
 compose fs x = foldr (.) id fs $ x
 
-wrapFuncRet :: Func -> Doc -> Doc
+wrapFuncRet :: Func -> Doc C -> Doc C
 wrapFuncRet f@Func {funcVarHeading=FuncHeading {funcReturnType=r}} d
     = case r of
         Nothing -> d
         Just t -> let v = FuncReturn f t
                   in cType t (pretty v) <> semi
                         $$ d
-                        $$ text "return" <+> pretty v <> semi
+                        $$ pretty "return" <+> pretty v <> semi
 
-generateFuncHeading :: Func -> FuncHeading Scoped Ordinal -> Doc
+generateFuncHeading :: Func -> FuncHeading Scoped Ordinal -> Doc C
 generateFuncHeading funcName FuncHeading {..} = let
-    ret = maybe (text "void" <+>) cType funcReturnType
-    args = parens $ commaList $ map generateParam funcArgs
+    ret = maybe (pretty "void" <+>) cType funcReturnType
+    args = paramList $ map generateParam funcArgs
     in ret $ pretty funcName <> args
 
-generateParam :: FuncParam Scoped Ordinal -> Doc
+generateParam :: FuncParam Scoped Ordinal -> Doc C
 generateParam FuncParam {..}
     | not paramByRef = declareVar (paramName, paramType)
     | otherwise = cType paramType (star <> paramArg paramName)
 
-wrapParam :: FuncParam Scoped Ordinal -> Doc -> Doc
+wrapParam :: FuncParam Scoped Ordinal -> Doc C -> Doc C
 wrapParam FuncParam {..} d
     | not paramByRef = d
     | otherwise
@@ -338,48 +343,48 @@ wrapParam FuncParam {..} d
             $$ d
             $$ star <> paramArg paramName <+> equals <+> pretty paramName <> semi
 
-paramArg :: Var -> Doc
+paramArg :: Var -> Doc C
 paramArg v = pretty v <> pretty "_arg"
 
-generateStatement :: [Label] -> Statement Scoped -> Doc
+generateStatement :: [Label] -> Statement Scoped -> Doc C
 generateStatement ls (Nothing, s) = generateStatementBase ls s <> semi
-generateStatement ls (Just l, s) = hang (labelID l <> colon) 2
+generateStatement ls (Just l, s) = myhang (labelID l <> colon)
                                     $ generateStatementBase ls s
                                         <> semi
 
-generateStatementBase :: [Label] -> StatementBase Scoped -> Doc
+generateStatementBase :: [Label] -> StatementBase Scoped -> Doc C
 generateStatementBase jmpLabels s = case s of
     AssignStmt (VLValue v) e
-        -> generateRef v <+> equals <+> generateExpr e
+        -> pretty v <+> equals <+> pretty e
     AssignStmt (FLValue f) e
-        -> pretty f <+> equals <+> generateExpr e
+        -> pretty f <+> equals <+> pretty e
     ProcedureCall (DefinedFunc f) args -> callFunction f args
     ProcedureCall (BuiltinFunc f) args -> generateBuiltin f args
-    IfStmt {..} -> braceBlock (text "if"
-                                <+> parens (generateExpr ifCond))
+    IfStmt {..} -> braceBlock (pretty "if"
+                                <+> parens (pretty ifCond))
                     (generateStatement jmpLabels thenStmt)
                     $+$ case elseStmt of
-                          Nothing -> mempty
-                          Just s' -> braceBlock (text "else")
+                          Nothing -> empty
+                          Just s' -> braceBlock (pretty "else")
                                         (generateStatement jmpLabels s')
     ForStmt {..} -> forStmt loopVar forStart forEnd forDirection
                         $ generateStatement jmpLabels forBody
     WhileStmt {..}
-        -> braceBlock (text "while" <+> parens
-                            (generateExpr loopExpr))
+        -> braceBlock (pretty "while" <+> parens
+                            (pretty loopExpr))
                 $ generateStatement jmpLabels loopStmt
     RepeatStmt {..}
-        -> braceBlock (text "do")
+        -> braceBlock (pretty "do")
             (vcat (map (generateStatement jmpLabels) loopBody))
-            <> text "while"
-            <+> parens (generateExpr (NotOp loopExpr))
+            <> pretty "while"
+            <+> parens (pretty (NotOp loopExpr))
     CaseStmt {..} -> braceBlock
-                        (text "switch" <+> parens (generateExpr caseExpr))
+                        (pretty "switch" <+> parens (pretty caseExpr))
                         $ vcat (map (generateCase jmpLabels) caseList)
     Goto l
-        | l `elem` jmpLabels -> text "longjmp"
+        | l `elem` jmpLabels -> pretty "longjmp"
                                     <+> paramList [labelBuf l, pretty "1"]
-        | otherwise -> text "goto" <+> labelID l
+        | otherwise -> pretty "goto" <+> labelID l
     Write {..} -> generateWrite addNewline writeArgs
     CompoundStmt s' -> vcat (map (generateStatement jmpLabels) s')
     EmptyStatement -> empty
@@ -408,21 +413,22 @@ We can omit the initial "if" test in most cases where the for loop bounds
 are constants.
 -}
 
-forStmt :: VarID Scoped -> Expr Scoped -> Expr Scoped -> ForDir -> Doc -> Doc
+forStmt :: VarID Scoped -> Expr Scoped -> Expr Scoped -> ForDir
+            -> Doc C -> Doc C
 forStmt i start end dir stmt
-    = pretty i <> equals <> generateExpr start <> semi
+    = pretty i <> equals <> pretty start <> semi
     $$ braceBlock (
         whenD needInitialCheck
-                (text "if" <+> parens (pretty i <> cmpEq <> generateExpr end) )
-            <+> text "do")
+                (pretty "if" <+> parens (pretty i <> cmpEq <> pretty end) )
+            <+> pretty "do")
         stmt
-        <+> text "while" 
-        <+> parens (pretty i <> adv <+> cmpNEq <> generateExpr end) <> semi
-    $$ pretty i <+> equals <+> generateExpr end <> semi
+        <+> pretty "while" 
+        <+> parens (pretty i <> adv <+> cmpNEq <> pretty end) <> semi
+    $$ pretty i <+> equals <+> pretty end <> semi
   where
     (low,hi,cmpEq,cmpNEq,adv) = case dir of
-        UpTo -> (start,end,text "<=", text "<", text "++")
-        DownTo -> (end,start,text ">=", text ">", text "--")
+        UpTo -> (start, end, pretty "<=", pretty "<", pretty "++")
+        DownTo -> (end, start, pretty ">=", pretty ">", pretty "--")
     -- Check whether the loop is guaranteed to run at least once.
     -- (If not, we can omit the initial "if" tet.)
     -- We know it must if the low and hi are constants and low<=hi.
@@ -443,135 +449,135 @@ forStmt i start end dir stmt
         , isUnsignedInC o        = False
         | otherwise           = True
 
-whenD :: Bool -> Doc -> Doc
+whenD :: Bool -> Doc C -> Doc C
 whenD True x = x
 whenD False _ = empty
 
 
-generateCase :: [Label] -> CaseElt Scoped -> Doc
-generateCase jmpLabels CaseElt {..} = hang cases 2 statements
+generateCase :: [Label] -> CaseElt Scoped -> Doc C
+generateCase jmpLabels CaseElt {..} = myhang cases statements
   where
     cases = vcat $ map (<> colon)
-            $ map (maybe (text "default") mkCase) caseConstants
-    mkCase (ConstInt k) = text "case " <> pretty k
-    mkCase c = error $ "can't handle case " ++ show (pretty c)
-    statements = generateStatement jmpLabels caseStmt $$ text "break;"
+            $ map (maybe (pretty "default") mkCase) caseConstants
+    mkCase (ConstInt k) = pretty "case " <> pretty k
+    mkCase c = error $ "can't handle case " ++ showPascal c
+    statements = generateStatement jmpLabels caseStmt $$ pretty "break;"
 
-generateExpr :: Expr Scoped -> Doc
-generateExpr e = case e of
-    ConstExpr c -> generateConstValue c
-    VarExpr (DeRef v) -> pretty "pascal_peekc" <> parens (generateRef v)
-    VarExpr v -> generateRef v
-    FuncCall (DefinedFunc f) es -> callFunction f es
-    FuncCall (BuiltinFunc f) es -> generateBuiltin f es
-    -- Pascal treats Divide as always producing a real output.
-    -- C throws out the remainder when dividing two integers.
-    -- So to keep the remainder, we first cast the inputs to floats.
-    BinOp x Divide y -> castFloat (generateExpr x)
-                            <> cOp Divide <> castFloat (generateExpr y)
-    BinOp x o y -> parens (generateExpr x) 
-                        <> cOp o <> parens (generateExpr y)
-    NotOp x -> text "!" <> parens (generateExpr x)
-    Negate x -> text "-" <> parens (generateExpr x)
+instance Pretty C (Expr Scoped) where
+    pretty e = case e of
+        ConstExpr c -> pretty c
+        VarExpr (DeRef v) -> pretty "pascal_peekc" <> parens (pretty v)
+        VarExpr v -> pretty v
+        FuncCall (DefinedFunc f) es -> callFunction f es
+        FuncCall (BuiltinFunc f) es -> generateBuiltin f es
+        -- Pascal treats Divide as always producing a real output.
+        -- C throws out the remainder when dividing two integers.
+        -- So to keep the remainder, we first cast the inputs to floats.
+        BinOp x Divide y -> castFloat (pretty x)
+                                <> pretty Divide <> castFloat (pretty y)
+        BinOp x o y -> parens (pretty x) 
+                            <> pretty o <> parens (pretty y)
+        NotOp x -> pretty "!" <> parens (pretty x)
+        Negate x -> pretty "-" <> parens (pretty x)
 
-callFunction :: Func -> [Expr Scoped] -> Doc
+callFunction :: Func -> [Expr Scoped] -> Doc C
 callFunction f es = pretty f
-                <> parens (commaList $ zipWith generateParamExpr
+                <> (paramList $ zipWith generateParamExpr
                                                 (funcArgs (funcVarHeading f))
                                                 es)
   where
     generateParamExpr FuncParam {..} e
-        | paramByRef = text "&" <> parens (generateExpr e)
-        | otherwise = generateExpr e
+        | paramByRef = pretty "&" <> parens (pretty e)
+        | otherwise = pretty e
 
-castFloat :: Doc -> Doc
-castFloat e = text "(float)" <> parens e
+castFloat :: Doc C -> Doc C
+castFloat e = pretty "(float)" <> parens e
 
-generateConstValue :: ConstValue -> Doc
-generateConstValue (ConstInt n) = pretty n
--- quote/escape using the Show Char and Show String instances
-generateConstValue (ConstChar c) = text $ show c
-generateConstValue (ConstString s) = text $ show s
-generateConstValue (ConstReal r)
-    = pretty $ showFFloat Nothing (realToFrac r :: Double) ""
-
-generateRef :: VarReference Scoped -> Doc
-generateRef (NameRef v) = pretty v
-generateRef (ArrayRef v es)
-    = parens (generateRef v) <> arrayAccess v es
-generateRef (RecordRef v n) = parens (generateRef v) <> text "."
-                                <> recordAccess v n
-generateRef (DeRef _) = error "generateRef: file refs not implemented."
+instance Pretty C ConstValue where
+    pretty (ConstInt n) = pretty n
+    -- quote/escape using the Show Char and Show String instances
+    pretty (ConstChar c) = pretty $ show c
+    pretty (ConstString s) = pretty $ show s
+    pretty (ConstReal r)
+        = pretty $ showFFloat Nothing (realToFrac r :: Double) ""
+    
+instance Pretty C (VarReference Scoped) where
+    pretty (NameRef v) = pretty v
+    pretty (ArrayRef v es)
+        = parens (pretty v) <> arrayAccess v es
+    pretty (RecordRef v n) = parens (pretty v) <> pretty "."
+                                    <> recordAccess v n
+    pretty (DeRef _) = error "pretty: file refs not implemented."
 
 -- TODO: check it's the right number of indices
-arrayAccess :: VarReference Scoped -> [Expr Scoped] -> Doc
+arrayAccess :: VarReference Scoped -> [Expr Scoped] -> Doc C
 arrayAccess v es = case inferRefType v of
         RefType ArrayType {..}  -> indexed $ zipWith ordAccess arrayIndexType
-                                $ map generateExpr es
+                                $ map pretty es
         -- Pointers are zero-indexed.
-        RefType (PointerType _)   -> indexed $ map generateExpr es
-        _               -> error ("accessing " ++ show (pretty v) ++ " as array")
+        RefType (PointerType _)   -> indexed $ map pretty es
+        _           -> error ("accessing " ++ showPascal v ++ " as array")
   where
     indexed = hcat . map brackets
 
-ordAccess :: Ordinal -> Doc -> Doc
+ordAccess :: Ordinal -> Doc C -> Doc C
 ordAccess o e
     | ordLower o == 0 = e
-    | otherwise = parens e <> text "-" <> parens (pretty (ordLower o))
+    | otherwise = parens e <> pretty "-" <> parens (pretty (ordLower o))
 
-recordAccess :: VarReference Scoped -> Name -> Doc
+recordAccess :: VarReference Scoped -> Name -> Doc C
 recordAccess v n
     | RefType RecordType {..} <- inferRefType v
         = case lookupField n recordFields of
             Just (Left _) -> prettyField n
-            Just (Right (k,_)) -> text "variant.var" <> pretty k
-                                        <> text "." <> prettyField n
+            Just (Right (k,_)) -> pretty "variant.var" <> pretty k
+                                        <> pretty "." <> prettyField n
             Nothing -> error $ "can't find field " ++ show n
-    | otherwise = error $ "not a record: " ++ show (pretty v)
+    | otherwise = error $ "not a record: " ++ showPascal v
 
 
-cOp:: BinOp -> Doc
-cOp Plus = text "+"
-cOp Minus = text "-"
-cOp Times = text "*"
-cOp Divide = text "/"
-cOp Div = text "/" -- todo: negative?
-cOp Mod = text "%"
-cOp Or = text "||"
-cOp And = text "&&"
-cOp OpEQ = text "=="
-cOp NEQ = text "!="
-cOp OpLT = text "<"
-cOp LTEQ = text "<="
-cOp OpGT = text ">"
-cOp GTEQ = text ">="
+instance Pretty C BinOp where
+    pretty Plus = pretty "+"
+    pretty Minus = pretty "-"
+    pretty Times = pretty "*"
+    pretty Divide = pretty "/"
+    pretty Div = pretty "/" -- todo: negative?
+    pretty Mod = pretty "%"
+    pretty Or = pretty "||"
+    pretty And = pretty "&&"
+    pretty OpEQ = pretty "=="
+    pretty NEQ = pretty "!="
+    pretty OpLT = pretty "<"
+    pretty LTEQ = pretty "<="
+    pretty OpGT = pretty ">"
+    pretty GTEQ = pretty ">="
 
 
 --------------------
 
-generateWrite :: Bool -> [WriteArg Scoped] -> Doc
+generateWrite :: Bool -> [WriteArg Scoped] -> Doc C
 generateWrite addNewline writeArgs = case writeArgs of
     w:ws | FileType _ <- inferExprType (writeExpr w)
-        -> text "fprintf"
-            <> parens (commaList $ generateExpr (writeExpr w) : printfArgs ws)
-    _ -> text "printf" <> parens (commaList $ printfArgs writeArgs)
+        -> pretty "fprintf"
+            <> (paramList $ pretty (writeExpr w) : printfArgs ws)
+    _ -> pretty "printf" <> (paramList $ printfArgs writeArgs)
   where
     printfArgs ws = let (fs,xs) = unzip (map mkArg ws)
                     in doubleQuotes (pretty $ concat fs ++ endLine)
                         : xs
     endLine = if addNewline then "\\n" else ""
-    mkArg :: WriteArg Scoped -> (String,Doc)
+    mkArg :: WriteArg Scoped -> (String,Doc C)
     mkArg WriteArg {..} = case inferExprType writeExpr of
-        BaseType CharType -> ("%c", generateExpr writeExpr)
+        BaseType CharType -> ("%c", pretty writeExpr)
         BaseType UnrangedInt -> case widthAndDigits of
-            Nothing -> ("%c",generateExpr writeExpr)
+            Nothing -> ("%c",pretty writeExpr)
             Just (k,Nothing) 
                 -> ("%" ++ show (extractConstInt k) ++ "d"
-                   , generateExpr writeExpr)
+                   , pretty writeExpr)
             Just (k,Just d)
                 -> ("%" ++ show (extractConstInt k) ++ "."
                     ++ show (extractConstInt d) ++ "f"
-                , castFloat $ parens (generateExpr writeExpr))
+                , castFloat $ parens (pretty writeExpr))
         RealType -> let
             f = case widthAndDigits of
                     Nothing -> "%f"
@@ -581,24 +587,24 @@ generateWrite addNewline writeArgs = case writeArgs of
                                     ++ "."
                                     ++ show (extractConstInt d)
                                     ++ "f"
-            in (f, generateExpr writeExpr)
-        PointerType _ -> ("%s", generateExpr writeExpr)
+            in (f, pretty writeExpr)
+        PointerType _ -> ("%s", pretty writeExpr)
         -- The ArrayType and FileType cases never appear in TeX-and-friends,
         -- but they're useful for debugging.
         -- Note that the ArrayType case assumes the array contains
         -- a null character.
         ArrayType _ (BaseType CharType) ->
-                ("%s",generateExpr writeExpr)
-        FileType _ -> ("%p", generateExpr writeExpr);
-        _ -> error $ "Unknown write expression: " ++ show (pretty writeExpr)
+                ("%s",pretty writeExpr)
+        FileType _ -> ("%p", pretty writeExpr);
+        _ -> error $ "Unknown write expression: " ++ showPascal writeExpr
 
 extractConstInt :: Expr Scoped -> Integer
 extractConstInt (ConstExpr (ConstInt n)) = n
 extractConstInt (VarExpr (NameRef Const {constValue=ConstInt n})) = n
-extractConstInt c = error ("unable to get constant int from expression "
-                            ++ show (pretty c))
+extractConstInt c = error $ "unable to get constant int from expression "
+                            ++ showPascal c
 
-generateBuiltin :: Name -> [Expr Scoped] -> Doc
+generateBuiltin :: Name -> [Expr Scoped] -> Doc C
 -- Since C chars may be signed, we must cast int->char with (char), which
 -- intentionally overflows 255:int to -1:char.
 -- This way, for example:
@@ -618,15 +624,15 @@ generateBuiltin "eoln" [e] = cFunc "pascal_eoln" [e]
 generateBuiltin "erstat" [e] = cFunc "ERSTAT" [e]
 generateBuiltin "close" [e] = cFunc "fclose" [e]
 generateBuiltin "read" (f:es)
-    = flip mapSemis es $ \e -> generateExpr e <+> equals <+> cFunc "getc" [f]
+    = flip mapSemis es $ \e -> pretty e <+> equals <+> cFunc "getc" [f]
 generateBuiltin "read_ln" [f] = cFunc "pascal_readln" [f]
 generateBuiltin "get" [f] = cFunc "(void)getc" [f]
 generateBuiltin "readBinary" [f,e,k]
-    = cFuncDoc "read" [cFunc "fileno" [f], text "&" <> parens (generateExpr e)
-                                 , generateExpr k]
+    = cFuncDoc "read" [cFunc "fileno" [f], pretty "&" <> parens (pretty e)
+                                 , pretty k]
 generateBuiltin "writeBinary" [f,e,k]
-    = cFuncDoc "write" [cFunc "fileno" [f], text "&" <> parens (generateExpr e)
-                                  , generateExpr k]
+    = cFuncDoc "write" [cFunc "fileno" [f], pretty "&" <> parens (pretty e)
+                                  , pretty k]
 generateBuiltin "writeInt32" [f,e] = cFunc "pascal_write32" [f,e]
 -- set_pos/cur_pos are Knuth-isms, rather than standard pascal.
 generateBuiltin "set_pos" [f,p] = cFunc "pascal_setpos" [f,p]
@@ -641,30 +647,32 @@ generateBuiltin "break_in" (f:_) = cFunc "fflush" [f]
 generateBuiltin "page" [] = empty -- used only in primes.web
 generateBuiltin "web2hs_find_cached" es = cFunc "web2hs_find_cached" es
 generateBuiltin f es = error $ "unknown builtin " ++ show f   
-                                ++ show (map pretty es)
+                                ++ show (map prettyPascal es)
 
-cFunc :: Name -> [Expr Scoped] -> Doc
-cFunc f = cFuncDoc f . map generateExpr
+cFunc :: Name -> [Expr Scoped] -> Doc C
+cFunc f = cFuncDoc f . map pretty
 
-cFuncDoc :: Name -> [Doc] -> Doc
-cFuncDoc f es = pretty f <> parens (commaList es)
+cFuncDoc :: Name -> [Doc C] -> Doc C
+cFuncDoc f es = pretty f <> paramList es
 
-openForRead :: Expr Scoped -> [Expr Scoped] -> Doc
+openForRead :: Expr Scoped -> [Expr Scoped] -> Doc C
 openForRead f es = pretty f <+> equals <+> case es of
     [] | VarExpr (NameRef v) <- f -> fopen (progGlobalVar v)
-    (ConstExpr (ConstString "TTY:"):_) -> text "stdin"
-    [e] -> fopen (generateExpr e)
-    [e,ConstExpr (ConstString "/O")] -> fopen (generateExpr e)
-    _ -> error $ "openForRead: unrecognized arguments: " ++ show (map pretty es)
+    (ConstExpr (ConstString "TTY:"):_) -> pretty "stdin"
+    [e] -> fopen (pretty e)
+    [e,ConstExpr (ConstString "/O")] -> fopen (pretty e)
+    _ -> error $ "openForRead: unrecognized arguments: "
+                    ++ show (map prettyPascal es)
   where
-    fopen path = cFuncDoc "fopen" [path, doubleQuotes (text "r")]
+    fopen path = cFuncDoc "fopen" [path, doubleQuotes (pretty "r")]
 
-openForWrite :: Expr Scoped -> [Expr Scoped] -> Doc
+openForWrite :: Expr Scoped -> [Expr Scoped] -> Doc C
 openForWrite f es = pretty f <+> equals <+> case es of
     [] | VarExpr (NameRef v) <- f -> fopen (progGlobalVar v)
-    (ConstExpr (ConstString "TTY:"):_) -> text "stdout"
-    [e] -> fopen (generateExpr e)
-    [e,ConstExpr (ConstString "/O")] -> fopen (generateExpr e)
-    _ -> error $ "openForRead: unrecognized arguments: " ++ show (map pretty es)
+    (ConstExpr (ConstString "TTY:"):_) -> pretty "stdout"
+    [e] -> fopen (pretty e)
+    [e,ConstExpr (ConstString "/O")] -> fopen (pretty e)
+    _ -> error $ "openForRead: unrecognized arguments: "
+                    ++ show (map prettyPascal es)
   where
-    fopen path = cFuncDoc "fopen" [path,doubleQuotes (text "w")]
+    fopen path = cFuncDoc "fopen" [path,doubleQuotes (pretty "w")]

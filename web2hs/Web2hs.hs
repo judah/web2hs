@@ -3,9 +3,9 @@ module Main where
 import qualified Language.Pascal.Parser as Parser
 import Language.Pascal.Lexer
 import Language.Pascal.Transform
-import Language.Pascal.Pretty
-import Language.Pascal.GenerateC
-import Text.PrettyPrint.HughesPJ
+import Language.Pascal.Pretty.Base
+import Language.Pascal.Pretty.Pascal
+import Language.Pascal.Pretty.C
 
 import System.Console.CmdArgs
 
@@ -43,7 +43,7 @@ main = do
                                 $ flattenProgram s
             case pascalDumpFile of
                 Nothing -> return ()
-                Just f -> writeFile f $ render $ pretty transformed
+                Just f -> writeFile f $ render $ prettyPascal transformed
             writeFile outputFile
                 $ render $ generateProgram transformed
             writeFile (replaceExtension outputFile "h")

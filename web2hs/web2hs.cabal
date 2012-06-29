@@ -18,9 +18,10 @@ Library
         Language.Pascal.Lexer
         Language.Pascal.Parser
         Language.Pascal.Transform
-        Language.Pascal.Pretty
+        Language.Pascal.Pretty.Base
+        Language.Pascal.Pretty.Pascal
+        Language.Pascal.Pretty.C
         Language.Pascal.Typecheck
-        Language.Pascal.GenerateC
         Distribution.Web2hs
   
   -- Packages needed in order to build this package.
@@ -37,8 +38,9 @@ Library
 
   Extensions: RecordWildCards, TypeSynonymInstances, FlexibleInstances
               GADTs, GeneralizedNewtypeDeriving, TypeFamilies
-              EmptyDataDecls, FlexibleContexts, UndecidableInstances
-              StandaloneDeriving, PatternGuards
+              MultiParamTypeClasses, FlexibleContexts, UndecidableInstances
+              StandaloneDeriving, PatternGuards, EmptyDataDecls
+              DeriveDataTypeable
 
 Executable web2hs
     Main-is: Web2hs.hs
@@ -47,9 +49,10 @@ Executable web2hs
         Language.Pascal.Lexer
         Language.Pascal.Parser
         Language.Pascal.Transform
-        Language.Pascal.Pretty
+        Language.Pascal.Pretty.Base
+        Language.Pascal.Pretty.Pascal
+        Language.Pascal.Pretty.C
         Language.Pascal.Typecheck
-        Language.Pascal.GenerateC
 
     Build-tools: alex>=3.0.2
     Build-depends: base==4.*, array>=0.3 && < 0.5, pretty>=1.0 && < 1.2,
@@ -57,6 +60,7 @@ Executable web2hs
                  filepath>=1.0 && < 1.4, cmdargs==0.9.*
     Extensions: RecordWildCards, TypeSynonymInstances, FlexibleInstances
               GADTs, GeneralizedNewtypeDeriving, TypeFamilies
-              EmptyDataDecls, FlexibleContexts, UndecidableInstances
-              StandaloneDeriving, PatternGuards, DeriveDataTypeable
+              MultiParamTypeClasses, FlexibleContexts, UndecidableInstances
+              StandaloneDeriving, PatternGuards, EmptyDataDecls
+              DeriveDataTypeable
 
