@@ -82,6 +82,9 @@ ordinalCName (Ordinal l h)
   where
     inRange low hi = l >= low && h < hi
 
+isUnsignedInC :: Ordinal -> Bool
+isUnsignedInC o = ordLower o >= 0 -- This must be compatible with ordinalCName
+
 ordSize :: Ordinal -> Integer
 ordSize o = ordUpper o - ordLower o + 1
 
@@ -428,8 +431,17 @@ forStmt i start end dir stmt
     needInitialCheck
         | ConstExpr (ConstInt k1) <- low
         , ConstExpr (ConstInt k2) <- hi
-        , k1<=k2    = False
-        | otherwise = True
+        , k1<=k2                = False
+        -- Special case: for i:=0 to hi,
+        -- where hi is represented in C by an unsigned type,
+        -- and thus hi>=0.
+        -- (I'm wary about expanding this to more general Pascal ranges,
+        -- since C doesn't completely enforce them.
+        | ConstExpr (ConstInt 0) <- low
+        , VarExpr r <- hi
+        , RefType (BaseType o) <- inferRefType r
+        , isUnsignedInC o        = False
+        | otherwise           = True
 
 whenD :: Bool -> Doc -> Doc
 whenD True x = x

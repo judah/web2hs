@@ -168,6 +168,46 @@ repeat
   until pool_path[k-1] = 0;
 @z
 
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% Prevent a few warnings of superfluous tests.
+% font(p),text(p),info(p) are all unsigned types in C,
+% so, e.g., font(p)<0 is always false.
+%
+% [173]
+@x
+        begin if (font(p)<font_base)or(font(p)>font_max) then
+@y
+        begin if font(p)>font_max then
+@z
+
+% [176]
+%Prevent warning, since font_base=0<=font(p).
+@x
+else  begin if (font(p)<font_base)or(font(p)>font_max) then print_char("*")
+@y
+else  begin if font(p)>font_max then print_char("*")
+@z
+
+% [262]
+% Prevent warning, since text(p) is unsigned.
+@x
+else if (text(p)<0)or(text(p)>=str_ptr) then print_esc("NONEXISTENT.")
+@y
+else if text(p)>=str_ptr then print_esc("NONEXISTENT.")
+@z
+
+% [293]
+% Prevent warning, since info(p) is unsigned.
+@x
+  if info(p)<0 then print_esc("BAD.")
+@.BAD@>
+  else @<Display the token $(|m|,|c|)$@>;
+@y
+  @<Display the token $(|m|,|c|)$@>;
+@z
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [514]
 % Make the fonts area a unix-style folder.
 @x
