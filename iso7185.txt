@@ -1,3 +1,5 @@
+Some notes on the Pascal language grammar.
+
 This is taken from 
 http://pascal-central.com/iso7185.html#6.7 Expressions
 which is a web copy (partially OCR'd) of the grammar used by ISO7185.
