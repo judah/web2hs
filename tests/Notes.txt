@@ -1,3 +1,0 @@
-.web files were obtained from the texlive distribution.
-
-I used tangle -underline to generate the corresponding .p files.
