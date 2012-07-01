@@ -1,4 +1,8 @@
-module Distribution.Web2hs(web2hsUserHooks) where
+module Distribution.Web2hs(
+                web2hsUserHooks,
+                rawSystem',
+                web2hsBuildDir,
+                ) where
 
 import Distribution.Simple
 import Distribution.Simple.LocalBuildInfo
@@ -74,7 +78,7 @@ copyWithPool act pd lbi hooks' flags = do
             let webFiles = [f | exe <- executables pd, f <- web2hsWebFiles $ buildInfo exe]
                         ++ maybe [] (web2hsWebFiles . libBuildInfo) (library pd)
             let poolFiles = nub $ map (flip replaceExtension "pool") webFiles
-            act pd { dataFiles = poolFiles 
+            act pd { dataFiles = poolFiles ++ dataFiles pd
                    , dataDir = poolDir
                    }
                 lbi hooks' flags

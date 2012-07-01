@@ -6,8 +6,32 @@
 @x
 program TEX; {all file names are defined dynamically}
 @y
-program TEX(pool_path, first_line); {all file names are defined dynamically}
+program TEX(user_options);
 @z
+
+% [8]
+% Whether or not we run as "initex" depends on command-line options,
+% rather than being determined at compile time.
+% We add the "ifinit" macro which wraps various initializations in
+% an if block.
+% (It's simpler to keep around the original unused "init" macro, since it's used
+% in several places where "if" statements are not allowed, such as type/variable
+% declarations.)
+@x
+@d init== {change this to `$\\{init}\equiv\.{@@\{}$' in the production version}
+@y
+@d init== {change this to `$\\{init}\equiv\.{@@\{}$' in the production version}
+@d ifinit==if (user_options.explicit_format=0) then begin
+@d endifinit==end;
+@f ifinit==begin
+@fendifinit==end
+@z
+@x
+@!init @<Initialize table entries (done by \.{INITEX} only)@>@;@+tini
+@y
+@!ifinit @<Initialize table entries (done by \.{INITEX} only)@>@;@+endifinit
+@z
+
 
 % [11]
 % - Use a larger file name size.
@@ -73,16 +97,6 @@ else  begin last_nonblank:=first;
 end;
 @z
 
-% [32]
-% Add global variables for the program arguments.
-@x
-@!term_in:alpha_file; {the terminal as an input file}
-@y
-@!term_in:alpha_file; {the terminal as an input file}
-@!pool_path: ^char;
-@!first_line:^ASCII_code;
-@z
-
 % [37]
 % A couple changes when reading the first line of input:
 % Use the specified first_line, if it's available and not empty.
@@ -115,15 +129,15 @@ exit:end;
 label exit;
 begin t_open_in;
 { Try to use the manual first_line argument, if provided. }
-if (first_line <> 0) then begin
+if (user_options.first_line <> 0) then begin
   { Copy the first_line into the buffer }
   last:=first;
-  while first_line[last-first]<> 0 do begin
+  while user_options.first_line[last-first]<> 0 do begin
      { Check for overflow }
     if last+1>=buf_size then begin
       write_ln(term_out, 'Buffer size exceeded!'); goto final_end;
     end;
-    buffer[last]:=first_line[last-first];
+    buffer[last]:=user_options.first_line[last-first];
     incr(last);
   end;
   { Look for the first nonblank character.  If first_line
@@ -163,9 +177,9 @@ name_of_file:=pool_name; {we needn't set |name_length|}
 @y
 k:=0;
 repeat
-  name_of_file[k+1] := pool_path[k];
+  name_of_file[k+1] := user_options.pool_path[k];
   incr(k);
-  until pool_path[k-1] = 0;
+  until user_options.pool_path[k-1] = 0;
 @z
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -209,7 +223,8 @@ else if text(p)>=str_ptr then print_esc("NONEXISTENT.")
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [514]
-% Make the fonts area a unix-style folder.
+% Fonts and input files are read from the file cache,
+% so "areas" aren't needed.
 @x
 @d TEX_area=="TeXinputs:"
 @.TeXinputs@>
@@ -232,6 +247,15 @@ for k:=name_length+1 to file_name_size do name_of_file[k]:=chr(0);
 
 % [520]
 % Change the format default location into a C-string.
+% Also, the "area" part isn't needed.
+@x
+@d format_default_length=20 {length of the |TEX_format_default| string}
+@d format_area_length=11 {length of its area part}
+@y
+@d format_default_length=9 {length of the |TEX_format_default| string}
+@d format_area_length=0 {length of its area part}
+@z
+
 @x
 @!TEX_format_default:packed array[1..format_default_length] of char;
 @y
@@ -242,7 +266,7 @@ for k:=name_length+1 to file_name_size do name_of_file[k]:=chr(0);
 @x
 TEX_format_default:='TeXformats:plain.fmt';
 @y
-TEX_format_default:='TeXformats/plain.fmt';
+TEX_format_default:='plain.fmt';
 @z
 
 % [523]
@@ -260,13 +284,83 @@ for j:=format_default_length-format_ext_length to format_default_length-1 do
   append_to_name(xord[TEX_format_default[j]]);
 @z
 
-% [532]
+% [523]
 % Null-terminate the file name, in preparation of passing it to fopen.
 @x
 for k:=name_length+1 to file_name_size do name_of_file[k]:=' ';
 @y
 for k:=name_length+1 to file_name_size do name_of_file[k]:=chr(0);
 @z
+
+% [524]
+% If the input started with "&plain", or if explicit_format was set,
+% load the format file.
+% Search both the local dir and the cache, rather than trying the "area".
+@x
+@<Declare the function called |open_fmt_file|@>=
+function open_fmt_file:boolean;
+label found,exit;
+var j:0..buf_size; {the first space after the format file name}
+begin j:=loc;
+if buffer[loc]="&" then
+  begin incr(loc); j:=loc; buffer[last]:=" ";
+  while buffer[j]<>" " do incr(j);
+  pack_buffered_name(0,loc,j-1); {try first without the system file area}
+  if w_open_in(fmt_file) then goto found;
+  pack_buffered_name(format_area_length,loc,j-1);
+    {now try the system format file area}
+  if w_open_in(fmt_file) then goto found;
+  wake_up_terminal;
+  wterm_ln('Sorry, I can''t find that format;',' will try PLAIN.');
+@.Sorry, I can't find...@>
+  update_terminal;
+  end;
+  {now pull out all the stops: try for the system \.{plain} file}
+pack_buffered_name(format_default_length-format_ext_length,1,0);
+if not w_open_in(fmt_file) then
+  begin wake_up_terminal;
+  wterm_ln('I can''t find the PLAIN format file!');
+@.I can't find PLAIN...@>
+@.plain@>
+  open_fmt_file:=false; return;
+  end;
+found:loc:=j; open_fmt_file:=true;
+exit:end;
+@y
+@<Declare the function called |open_fmt_file|@>=
+function open_fmt_file:boolean;
+label found,exit;
+var j:0..buf_size; {the first space after the format file name}
+    k:integer;
+begin 
+j:=loc;
+if buffer[loc]="&" then
+  begin incr(loc); j:=loc; buffer[last]:=" ";
+  while buffer[j]<>" " do incr(j);
+  pack_buffered_name(0,loc,j-1); { append ".fmt" }
+  end
+else { format_ident=0, so we're not in initex, so explicit_format <> 0 }
+  begin
+  k:=0;
+  repeat
+    name_of_file[k+1] := user_options.explicit_format[k];
+    incr(k);
+    until user_options.explicit_format[k-1] = 0;
+  end;
+{try looking for the local file first}
+if w_open_in(fmt_file) then goto found;
+{try looking for a cached file of this name}
+name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
+if (name_length>0) and w_open_in(fmt_file) then goto found;
+wake_up_terminal;
+wterm_ln('I can''t find the specified format file!');
+@.I can't find PLAIN...@>
+@.plain@>
+open_fmt_file:=false; return;
+found:loc:=j; open_fmt_file:=true;
+exit:end;
+@z
+
 
 % [534]
 % Make the months array into a C-string.
@@ -292,7 +386,7 @@ for k:=3*month-3 to 3*month-1 do wlog(months[k]);
     if a_open_in(cur_file) then goto done;
 @y
     name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
-    if (name_length>0) and (a_open_in(cur_file)<>false) then goto done;
+    if (name_length>0) and a_open_in(cur_file) then goto done;
 @z
 
 
@@ -305,6 +399,21 @@ name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
 if (name_length <= 0) or (not b_open_in(tfm_file)) then abort;
 @z
 
+% [891]
+% More "init"=>"ifinit" changes
+@x
+begin @!init if trie_not_ready then init_trie;@+tini@;@/
+@y
+begin @!ifinit if trie_not_ready then init_trie;@+endifinit@;@/
+@z
+
+% [1252]
+% More "init"=>"ifinit" changes
+@x
+    begin @!init new_patterns; goto done;@;@+tini@/
+@y
+    begin @!ifinit new_patterns; goto done;@;@+endifinit@/
+@z
 
 
 % [1305]
@@ -346,6 +455,38 @@ x:=fmt_file^.int;
 readBinary(fmt_file,x,4);
 @z
 
+% [1325]
+% More init=>ifinit changes.
+@x
+undump_size(0)(trie_size)('trie size')(j); @+init trie_max:=j;@+tini
+@y
+undump_size(0)(trie_size)('trie size')(j); @+ifinit trie_max:=j;@+endifinit
+@z
+
+@x
+undump_size(0)(trie_op_size)('trie op size')(j); @+init trie_op_ptr:=j;@+tini
+@y
+undump_size(0)(trie_op_size)('trie op size')(j); @+ifinit trie_op_ptr:=j;@+endifinit
+@z
+
+@x
+init for k:=0 to 255 do trie_used[k]:=min_quarterword;@+tini@;@/
+@y
+ifinit for k:=0 to 255 do trie_used[k]:=min_quarterword;@+endifinit@;@/
+@z
+
+@x
+  begin undump(0)(k-1)(k); undump(1)(j)(x);@+init trie_used[k]:=qi(x);@+tini@;@/
+@y
+  begin undump(0)(k-1)(k); undump(1)(j)(x);@+ifinit trie_used[k]:=qi(x);@+endifinit@;@/
+@z
+
+@x
+@!init trie_not_ready:=false @+tini
+@y
+@!ifinit trie_not_ready:=false @+endifinit
+@z
+
 % [1326]
 % Temporary workaround: prevent the final eof() from failing when reading
 % the .fmt file.
@@ -355,10 +496,64 @@ dump_int(interaction); dump_int(format_ident); dump_int(69069);
 dump_int(interaction); dump_int(format_ident); dump_int(69069);dump_int(69069);
 @z
 
+% [1332]
+% More init=>ifinit changes.
+@x
+@!init if not get_strings_started then goto final_end;
+@y
+@!ifinit if not get_strings_started then goto final_end;
+@z
+
+@x
+tini@/
+@y
+endifinit@/
+@z
+
 % [1333]
 % Ensure that there's an ending newline.
 @x
     slow_print(log_name); print_char(".");
 @y
     slow_print(log_name); print_char("."); print_ln;
+@z
+
+% [1335]
+% More init=>ifinit changes.
+@x
+  begin @!init for c:=top_mark_code to split_bot_mark_code do
+@y
+  begin @!ifinit for c:=top_mark_code to split_bot_mark_code do
+@z
+
+@x
+  store_fmt_file; return;@+tini@/
+@y
+  store_fmt_file; return;@+endifinit@/
+@z
+
+% [1379]
+@x
+@* \[54] System-dependent changes.
+This section should be replaced, if necessary, by any special
+modifications of the program
+that are necessary to make \TeX\ work at a particular installation.
+It is usually best to design your change file so that all changes to
+previous sections preserve the section numbering; then everybody's version
+will be consistent with the published program. More extensive changes,
+which introduce new sections, can be inserted here; then only the index
+itself will get a new section number.
+@^system dependencies@>
+@y
+@* \[54] System-dependent changes.
+We add a record type to manage the command-line arguments.
+@<Types...@>=
+@!options=record@!pool_path:^char;@+ { null-terminated path to tex.pool }
+    @!explicit_format:^char; {either NULL, or null-termianted path }
+    @!first_line:^ASCII_code; {null-terminated array; 
+                            if nonempty, it's used as the first input line}
+    @!end;
+
+@ @<Global...@>=
+@!user_options:options;
 @z
