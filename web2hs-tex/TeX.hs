@@ -10,6 +10,7 @@ import Control.Monad (mplus,guard)
 data Args = Args
                 { initex :: Bool
                 , formatFile :: Maybe FilePath
+                , poolFile :: Maybe FilePath
                 , unusedArgs :: [String]
                 } deriving (Show,Typeable,Data)
 
@@ -20,7 +21,11 @@ getArgs = cmdArgs $ Args
                             &= help "Don't load an initial format file"
                 , formatFile = def &= explicit &= name "fmt"
                             &= typFile
-                            &= help "preload this format file (e.g., 'plain')"
+                            &= help "preload this format file (e.g., \"plain\")"
+                , poolFile = def &= explicit &= name "pool"
+                            &= typFile
+                            &= help ("specify a string pool file to use "
+                                    ++ " instead of the installed \"tex.pool\"")
                 , unusedArgs = def &= args
                             &= typ "COMMANDS"
                 } &= program "web2hs-tex"
@@ -34,8 +39,10 @@ getArgs = cmdArgs $ Args
 main = do
     fc <- getUserFileCache
     Args {..} <- getArgs
-    let firstLine = unwords unusedArgs
-    let explicitFormatFile = formatFile 
+    let options = (defaultOptions $ unwords unusedArgs)
+                    { explicitFormatFile
+                        = formatFile
                             `mplus` (guard (not initex) >> Just "plain.fmt")
-    history <- texWithOptions fc Options {..}
+                    }
+    history <- texWithOptions fc options
     exitWithHistory history

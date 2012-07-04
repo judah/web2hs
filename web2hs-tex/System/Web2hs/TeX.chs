@@ -1,6 +1,7 @@
 module System.Web2hs.TeX (
             texWithOptions,
             Options(..),
+            defaultOptions,
             tex,
             initex,
             ) where
@@ -21,7 +22,12 @@ import Foreign.Storable
 
 
 data Options = Options
-                { explicitFormatFile :: Maybe FilePath
+                { firstLine :: String
+                    -- ^ The first line of input.  Maybe be \"foo\" or \"foo.tex\"
+                    -- to load and process an input file.
+                    -- If this is empty, TeX will read
+                    -- the first line from the terminal.
+                , explicitFormatFile :: Maybe FilePath
                     -- ^ If this is @Just f@, then TeX will read its initial state
                     -- from the given format file.  The file may be specified
                     -- either as an absolute path or as a filename (e.g.,
@@ -30,15 +36,25 @@ data Options = Options
                     -- If this is @Nothing@, then TeX will run as INITEX
                     -- and explicitly initialize its state instead of
                     -- preloading a format file.
-                , firstLine :: String
-                    -- ^ The first line of input.  Maybe be \"foo\" or \"foo.tex\"
-                    -- to process an input file.  If this is empty, TeX will read
-                    -- the first line from the terminal.
+                , explicitPoolFile :: Maybe FilePath
+                    -- ^ Specify an explicit path to the string pool file.
+                    -- If this is @Nothing@, TeX will use the installed
+                    -- \"tex.pool\" file.
                 } deriving Show
+
+-- | Default options which should be useful for standard invocations of TeX.
+defaultOptions :: String -- ^ The first line of input. (See 'firstLine').
+                -> Options 
+defaultOptions firstLine = Options
+                            { explicitFormatFile = Nothing
+                            , explicitPoolFile = Nothing
+                            , ..
+                            }
 
 texWithOptions :: FileCache -> Options -> IO History
 texWithOptions userFC Options {..} = do
-    poolPath <- getDataFileName "tex.pool"
+    poolPath <- maybe (getDataFileName "tex.pool")
+                    return explicitPoolFile
     allocaBytes {#sizeof options#} $ \optionsP -> do
     withCString poolPath $ \cPoolPath -> do
     maybeWithCString explicitFormatFile $ \cFmt -> do
@@ -61,13 +77,11 @@ getInstalledFormats = fmap (singleton "plain.fmt") $ getDataFileName "plain.fmt"
 
 
 tex :: FileCache -> String -> IO History
-tex fc firstLine = texWithOptions fc Options
-                        { explicitFormatFile = Just "plain.fmt"
-                        , firstLine = firstLine
-                        }
+tex fc firstLine = texWithOptions fc
+                      (defaultOptions firstLine)
+                        { explicitFormatFile = Just "plain.fmt" }
 
 initex :: FileCache -> String -> IO History
-initex fc firstLine = texWithOptions fc Options
-                        { explicitFormatFile = Nothing
-                        , firstLine = firstLine
-                        }
+initex fc firstLine = texWithOptions fc
+                        (defaultOptions firstLine)
+                          { explicitFormatFile = Just "plain.fmt" }

@@ -15,8 +15,10 @@ generateFormats hooks = hooks
                     buildHook hooks pd lbi hooks' flags
                     let execName = "web2hs-tex"
                     let execPath = buildDir lbi </> execName </> execName
+                    let poolPath = web2hsBuildDir lbi </> "tex.pool"
                     putStrLn "Generating format files..."
-                    rawSystem' execPath ["--initex", "plain.tex", "\\dump"]
+                    rawSystem' execPath ["--initex", "--pool=" ++ poolPath
+                                        , "plain.tex", "\\dump"]
                     renameFile "plain.fmt" (web2hsBuildDir lbi </> "plain.fmt")
                     renameFile "plain.log" (web2hsBuildDir lbi </> "plain.log")
     , copyHook = copyWithFormat (copyHook hooks)
