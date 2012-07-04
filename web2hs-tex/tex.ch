@@ -510,6 +510,12 @@ tini@/
 endifinit@/
 @z
 
+@x
+final_end: ready_already:=0;
+@y
+final_end: ready_already:=0; web2hs_return(history);
+@z
+
 % [1333]
 % Ensure that there's an ending newline.
 @x

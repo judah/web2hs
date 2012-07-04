@@ -178,7 +178,7 @@ generateHeader Program {progBlock = Block {..},..}
                                                 <- blockTypes]
         $$ head <> semi
   where
-    head = pretty "void" <+> pretty progName 
+    head = pretty "int" <+> pretty progName 
             <> paramList [progArgType p (progArgVar p) | p <- progArgs]
 
 ---------------------------
@@ -186,7 +186,7 @@ generateHeader Program {progBlock = Block {..},..}
 
 generateProgram :: Program Scoped Ordinal -> Doc C
 generateProgram Program {progBlock = Block{..},..} = let
-    head = pretty "void" <+> pretty progName 
+    head = pretty "int" <+> pretty progName 
             <> paramList [progArgType p (progArgVar p) | p <- progArgs]
     jmpLabels = blockLabels
     body = programStatements [] blockStatements -- any jumps would be local
@@ -200,7 +200,8 @@ generateProgram Program {progBlock = Block{..},..} = let
         $$ vcat (map (generateFunction jmpLabels) blockFunctions)
         $$ braceBlock head 
             (mapSemis programArgInitialization progArgs
-                $$ body)
+                $$ body
+                $$ pretty "return 0;")
 
 cIncludes :: Doc C
 cIncludes = pretty "#include \"web2hs_pascal_builtins.h\""
@@ -646,6 +647,9 @@ generateBuiltin "break" [f] = cFunc "fflush" [f]
 generateBuiltin "break_in" (f:_) = cFunc "fflush" [f]
 generateBuiltin "page" [] = empty -- used only in primes.web
 generateBuiltin "web2hs_find_cached" es = cFunc "web2hs_find_cached" es
+-- tex.web defines a "return" macro which wraps a goto.
+-- So for actual C-style returns, we use "web2hs_return".
+generateBuiltin "web2hs_return" [e] = cFunc "return" [e]
 generateBuiltin f es = error $ "unknown builtin " ++ show f   
                                 ++ show (map prettyPascal es)
 

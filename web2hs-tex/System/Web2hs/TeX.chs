@@ -6,6 +6,7 @@ module System.Web2hs.TeX (
             ) where
 
 import System.Web2hs.FileCache
+import System.Web2hs.History
 import Paths_web2hs_tex (getDataFileName)
 
 import Foreign.C
@@ -16,7 +17,7 @@ import Foreign.Storable
 #include "tex.h"
 
 {#fun TEX as c_tex
-    { id `Ptr ()' } -> `()' #}
+    { id `Ptr ()' } -> `History' fromCInt #}
 
 
 data Options = Options
@@ -35,7 +36,7 @@ data Options = Options
                     -- the first line from the terminal.
                 } deriving Show
 
-texWithOptions :: FileCache -> Options -> IO ()
+texWithOptions :: FileCache -> Options -> IO History
 texWithOptions userFC Options {..} = do
     poolPath <- getDataFileName "tex.pool"
     allocaBytes {#sizeof options#} $ \optionsP -> do
@@ -59,13 +60,13 @@ getInstalledFormats :: IO FileCache
 getInstalledFormats = fmap (singleton "plain.fmt") $ getDataFileName "plain.fmt"
 
 
-tex :: FileCache -> String -> IO ()
+tex :: FileCache -> String -> IO History
 tex fc firstLine = texWithOptions fc Options
                         { explicitFormatFile = Just "plain.fmt"
                         , firstLine = firstLine
                         }
 
-initex :: FileCache -> String -> IO ()
+initex :: FileCache -> String -> IO History
 initex fc firstLine = texWithOptions fc Options
                         { explicitFormatFile = Nothing
                         , firstLine = firstLine

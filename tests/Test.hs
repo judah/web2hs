@@ -22,6 +22,7 @@ main = do
     fc <- timed "filecache" getUserFileCache
     let loop = do
             s <- getLine
-            timed "tex" $ tex fc s
+            result <- timed "tex" $ tex fc s
+            print result
             loop
     loop

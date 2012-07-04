@@ -828,4 +828,4 @@ write(term_out,'(Did you see the warning message above?)');end;
 write(term_out,'(Pardon me, but I think I spotted something wrong.)');
 end;3:begin write_ln(term_out);
 write(term_out,'(That was a fatal error, my friend.)');end;end{:187};
-write_ln(term_out);end.{:182}
+write_ln(term_out);web2hs_return(history);end.{:182}

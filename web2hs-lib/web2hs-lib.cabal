@@ -15,6 +15,7 @@ library
   build-depends:       base ==4.5.*, filepath==1.3.*, bytestring==0.9.*,
                     unordered-containers==0.2.*, directory==1.1.*
   exposed-modules: System.Web2hs.FileCache
+                   System.Web2hs.History
   include-dirs:     cbits
   c-sources:        cbits/web2hs_pascal_builtins.c
   install-includes: web2hs_pascal_builtins.h

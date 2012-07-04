@@ -113,4 +113,5 @@ identifier: begin k:=0; j:=byte_start[cur_val]; w:=cur_val mod ww;
 @y
 @<Print the job |history|@>;
 new_line;
+web2hs_return(history);
 @z

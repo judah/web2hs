@@ -1,5 +1,6 @@
 module Main where
 
+import System.Web2hs.History
 import System.Web2hs.FileCache
 import System.Web2hs.TeX
 
@@ -37,4 +38,5 @@ main = do
     let explicitFormatFile = formatFile 
                             `mplus` (guard (not initex) >> Just "plain.fmt")
     print Options {..}
-    texWithOptions fc Options {..}
+    history <- texWithOptions fc Options {..}
+    exitWithHistory history
