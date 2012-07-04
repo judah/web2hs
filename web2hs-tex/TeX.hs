@@ -37,6 +37,5 @@ main = do
     let firstLine = unwords unusedArgs
     let explicitFormatFile = formatFile 
                             `mplus` (guard (not initex) >> Just "plain.fmt")
-    print Options {..}
     history <- texWithOptions fc Options {..}
     exitWithHistory history
