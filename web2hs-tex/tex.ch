@@ -229,6 +229,23 @@ else  begin if (font(p)<font_base)or(font(p)>font_max) then print_char("*")
 else  begin if font(p)>font_max then print_char("*")
 @z
 
+% [241]
+@x
+@p procedure fix_date_and_time;
+begin time:=12*60; {minutes since midnight}
+day:=4; {fourth day of the month}
+month:=7; {seventh month of the year}
+year:=1776; {Anno Domini}
+end;
+@y
+
+@p procedure fix_date_and_time;
+begin
+web2hs_set_time_and_date(time,day,month,year);
+time := time div 60; { TeX time is in minutes, not seconds }
+end;
+@z
+
 % [262]
 % Prevent warning, since text(p) is unsigned.
 @x

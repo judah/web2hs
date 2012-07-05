@@ -206,6 +206,7 @@ generateProgram Program {progBlock = Block{..},..} = let
 cIncludes :: Doc C
 cIncludes = pretty "#include \"web2hs_pascal_builtins.h\""
                 $$ pretty "#include <setjmp.h>"
+                $$ pretty "#include <time.h>"
 
 ---------
 -- Program argument initialization
@@ -646,6 +647,7 @@ generateBuiltin "cur_pos" [f] = cFunc "pascal_curpos" [f]
 generateBuiltin "break" [f] = cFunc "fflush" [f]
 generateBuiltin "break_in" (f:_) = cFunc "fflush" [f]
 generateBuiltin "page" [] = empty -- used only in primes.web
+generateBuiltin "web2hs_set_time_and_date" [t,d,m,y] = generateTimeAndDate t d m y
 generateBuiltin "web2hs_find_cached" es = cFunc "web2hs_find_cached" es
 -- tex.web defines a "return" macro which wraps a goto.
 -- So for actual C-style returns, we use "web2hs_return".
@@ -680,3 +682,15 @@ openForWrite f es = pretty f <+> equals <+> case es of
                     ++ show (map prettyPascal es)
   where
     fopen path = cFuncDoc "fopen" [path,doubleQuotes (pretty "w")]
+
+generateTimeAndDate t d m y
+    = braces $ -- add anonymous scope, since we're using a temp variable
+        mapSemis id
+            [ pretty "time_t web2c_time_t = time(NULL)"
+            , pretty "struct tm web2c_tm = *localtime(&web2c_time_t)"
+            , pretty t <+> equals <+> pretty "web2c_tm.tm_sec + 60 * web2c_tm.tm_min"
+                                    <> pretty " + 3600 * web2c_tm.tm_hour"
+            , pretty d <+> equals <+> pretty "web2c_tm.tm_mday"
+            , pretty m <+> equals <+> pretty "web2c_tm.tm_mon+1"
+            , pretty y <+> equals <+> pretty "web2c_tm.tm_year+1900"
+            ]
