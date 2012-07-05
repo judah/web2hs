@@ -436,11 +436,15 @@ for k:=3*month-3 to 3*month-1 do wlog(months[k]);
 
 % [563]
 % Use the cache to find .tfm files.
+% Try the local folder first.
 @x
 if not b_open_in(tfm_file) then abort;
 @y
-name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
-if (name_length <= 0) or (not b_open_in(tfm_file)) then abort;
+if not b_open_in(tfm_file) then
+  begin
+    name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
+    if (name_length <= 0) or (not b_open_in(tfm_file)) then abort;
+  end;
 @z
 
 % [891]
