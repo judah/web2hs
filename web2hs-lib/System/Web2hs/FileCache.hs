@@ -134,18 +134,16 @@ web2hs_find_cached inP outP outLen = do
         Nothing -> do
             poke outP 0
             return 0
-        Just path
-            | len > fromIntegral outLen -> do
-                -- TODO: should be able to remove need for this
-                Prelude.putStrLn $ "Length of path is too long: " ++ show path
-                poke outP 0
-                return 0
-            | otherwise -> do
-                -- TODO: more efficient
-                withCString path $ \p -> do
-                copyArray outP p (len+1)
-                return $ fromIntegral len
-          where
-            len = Prelude.length path
-
-
+        Just path -> do
+            -- Be careful: the CString and String might have different lengths
+            -- due to encoding.
+            withCStringLen path $ \(p,len) -> do
+            if len+1 > fromIntegral outLen -- enough to also store null terminator
+                then do
+                    Prelude.putStrLn $ "Length of path is too long: " ++ show path
+                    poke outP 0
+                    return 0
+                else do
+                    copyArray outP p len
+                    poke (outP `plusPtr` len) (0::CChar) -- make outP null-terminated
+                    return $ fromIntegral len

@@ -182,6 +182,15 @@ repeat
   until user_options.pool_path[k-1] = 0;
 @z
 
+% [74]
+% Set the initial interaction behavior.  (The Haskell modules make
+% ErrorStop the default.)
+@x
+@ @<Set init...@>=interaction:=error_stop_mode;
+@y
+@ @<Set init...@>=interaction:=user_options.interaction;
+@z
+
 %%%%%%%%%%%%%%%%%%%%%%%%%
 % Prevent a few warnings of superfluous tests.
 % font(p),text(p),info(p) are all unsigned types in C,
@@ -558,6 +567,7 @@ We add a record type to manage the command-line arguments.
     @!explicit_format:^char; {either NULL, or null-termianted path }
     @!first_line:^ASCII_code; {null-terminated array; 
                             if nonempty, it's used as the first input line}
+    @!interaction:batch_mode..error_stop_mode;
     @!end;
 
 @ @<Global...@>=

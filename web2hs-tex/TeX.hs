@@ -11,6 +11,7 @@ data Args = Args
                 { initex :: Bool
                 , formatFile :: Maybe FilePath
                 , poolFile :: Maybe FilePath
+                , interaction :: InteractionMode
                 , unusedArgs :: [String]
                 } deriving (Show,Typeable,Data)
 
@@ -21,11 +22,16 @@ getArgs = cmdArgs $ Args
                             &= help "Don't load an initial format file"
                 , formatFile = def &= explicit &= name "fmt"
                             &= typFile
-                            &= help "preload this format file (e.g., \"plain\")"
+                            &= help "Preload this format file (e.g., \"plain\")"
                 , poolFile = def &= explicit &= name "pool"
                             &= typFile
-                            &= help ("specify a string pool file to use "
+                            &= help ("Specify a string pool file to use "
                                     ++ " instead of the installed \"tex.pool\"")
+                , interaction = ErrorStop -- same as defaultOptions and tex.web
+                            &= typ "MODE"
+                            &= help ("Specify an interaction mode"
+                                    ++ " (batch, nonstop, scroll, or errorstop);"
+                                    ++ " default=errorstop")
                 , unusedArgs = def &= args
                             &= typ "COMMANDS"
                 } &= program "web2hs-tex"
@@ -43,6 +49,7 @@ main = do
                     { explicitFormatFile
                         = formatFile
                             `mplus` (guard (not initex) >> Just "plain.fmt")
+                    , interactionMode = interaction
                     }
     history <- texWithOptions fc options
     exitWithHistory history

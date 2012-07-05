@@ -1,6 +1,7 @@
 module System.Web2hs.TeX (
             texWithOptions,
             Options(..),
+            InteractionMode(..),
             defaultOptions,
             tex,
             initex,
@@ -14,6 +15,7 @@ import Foreign.C
 import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Storable
+import Data.Data
 
 #include "tex.h"
 
@@ -40,7 +42,19 @@ data Options = Options
                     -- ^ Specify an explicit path to the string pool file.
                     -- If this is @Nothing@, TeX will use the installed
                     -- \"tex.pool\" file.
+                , interactionMode :: InteractionMode
+                    -- ^ Specify the amount of TeX's user interaction.
                 } deriving Show
+
+-- | An interaction mode controls TeX's level of user interaction.
+data InteractionMode
+                 = Batch -- ^ Omit all stops and terminal output
+                 | Nonstop -- ^ Omit all stops
+                 | Scroll -- ^ Omit error stops
+                 | ErrorStop -- ^ Stop at every opportunity to interact
+            deriving (Show,Eq,Ord,Enum,Typeable,Data)
+            -- The above order causes "deriving Enum" to generate
+            -- the same integer values as in TeX.
 
 -- | Default options which should be useful for standard invocations of TeX.
 defaultOptions :: String -- ^ The first line of input. (See 'firstLine').
@@ -48,6 +62,8 @@ defaultOptions :: String -- ^ The first line of input. (See 'firstLine').
 defaultOptions firstLine = Options
                             { explicitFormatFile = Nothing
                             , explicitPoolFile = Nothing
+                            , interactionMode = ErrorStop -- same default as in
+                                                          -- TeX's WEB source
                             , ..
                             }
 
@@ -61,6 +77,7 @@ texWithOptions userFC Options {..} = do
     withCString firstLine $ \cFirstLine -> do
     {#set options.pool_path#} optionsP cPoolPath
     {#set options.explicit_format#} optionsP cFmt
+    {#set options.interaction#} optionsP (toEnum $ fromEnum interactionMode)
     {#set options.first_line#} optionsP
                             (castPtr cFirstLine :: Ptr CUChar)
     fmtFC <- getInstalledFormats
