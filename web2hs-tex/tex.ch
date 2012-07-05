@@ -1,3 +1,10 @@
+% [2]
+% We're not TRIP-compliant, so don't claim to be TeX.
+@x
+@d banner=='This is TeX, Version 3.1415926' {printed when \TeX\ starts}
+@y
+@d banner=='This is web2hs-TeX, Version 3.1415926' {printed when \TeX\ starts}
+@z
 % [4]
 % Program arguments:
 % pool_path: null-terminated path to tex.pool
@@ -180,6 +187,17 @@ repeat
   name_of_file[k+1] := user_options.pool_path[k];
   incr(k);
   until user_options.pool_path[k-1] = 0;
+@z
+
+% [61]
+% Don't print the format string; format_ident is not useful at this point.
+% TODO: something better.
+@x
+if format_ident=0 then wterm_ln(' (no format preloaded)')
+else  begin slow_print(format_ident); print_ln;
+  end;
+@y
+print_ln;
 @z
 
 % [74]
