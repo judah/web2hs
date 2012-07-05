@@ -24,6 +24,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Array (copyArray)
 import System.Directory (getHomeDirectory)
+import System.FilePath ( (</>) )
 
 -- Maps the name of a file to a (relative) path to the folder where it's located
 type FileCache = HashMap ByteString LocatedFile
@@ -52,8 +53,10 @@ instance Show LocatedFile where
 
 locatedFilePath :: LocatedFile -> FilePath
 locatedFilePath l = unpack (parentDir l) 
-                    ++ "/" ++ unpack (locatedFolder l)
-                    ++ "/" ++ unpack (locatedFilename l)
+                    </> unpack (locatedFolder l)
+                    </> unpack (locatedFilename l)
+                -- We're taking advantage of </> doing the right thing
+                -- with empty strings.
 
 readLSR :: FilePath -> IO FileCache
 readLSR f = do
