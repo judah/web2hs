@@ -391,9 +391,7 @@ else { format_ident=0, so we're not in initex, so explicit_format <> 0 }
     incr(k);
     until user_options.explicit_format[k-1] = 0;
   end;
-{try looking for the local file first}
-if w_open_in(fmt_file) then goto found;
-{try looking for a cached file of this name}
+{try looking for the local or cached file }
 name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
 if (name_length>0) and w_open_in(fmt_file) then goto found;
 wake_up_terminal;
@@ -424,27 +422,25 @@ for k:=3*month-3 to 3*month-1 do wlog(months[k]);
 
 % [537]
 % Use the cache to find .tex files.
-% Note that immediately before this code, TeX calls a_open_in on the
-% unexpanded name_of_file; this is how it tries to open local files.
 @x
+  if a_open_in(cur_file) then goto done;
+  if cur_area="" then
+    begin pack_file_name(cur_name,TEX_area,cur_ext);
     if a_open_in(cur_file) then goto done;
+    end;
 @y
-    name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
-    if (name_length>0) and a_open_in(cur_file) then goto done;
+  name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
+  if (name_length>0) and a_open_in(cur_file) then goto done;
 @z
 
 
 % [563]
 % Use the cache to find .tfm files.
-% Try the local folder first.
 @x
 if not b_open_in(tfm_file) then abort;
 @y
-if not b_open_in(tfm_file) then
-  begin
-    name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
-    if (name_length <= 0) or (not b_open_in(tfm_file)) then abort;
-  end;
+name_length := web2hs_find_cached(name_of_file,name_of_file,file_name_size);
+if (name_length <= 0) or (not b_open_in(tfm_file)) then abort;
 @z
 
 % [891]

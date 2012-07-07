@@ -23,7 +23,7 @@ import Foreign.C
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Array (copyArray)
-import System.Directory (getHomeDirectory)
+import System.Directory (getHomeDirectory, doesFileExist)
 import System.FilePath ( (</>) )
 
 -- Maps the name of a file to a (relative) path to the folder where it's located
@@ -123,6 +123,9 @@ withFileCache fc = bracket start end . const
 foreign export ccall web2hs_find_cached
     :: Ptr CChar -> Ptr CChar -> CInt -> IO CInt
 
+-- Search for a file location using the global cache.
+-- If there's a local file of this same name, it overrides the cache.
+-- 
 -- Takes in a string buffers (input and output)
 -- input is a file name (null-terminated)
 -- output is full path to the file (null-terminated)
@@ -130,10 +133,23 @@ foreign export ccall web2hs_find_cached
 -- Returns length of returned string (without the terminating null),
 -- or zero if the the file could not be found.
 web2hs_find_cached :: Ptr CChar -> Ptr CChar -> CInt -> IO CInt
-web2hs_find_cached inP outP outLen = do
+web2hs_find_cached = wrapFind $ \file -> do
+    let strFile = B.unpack file
+    exists <- doesFileExist strFile
+    if exists
+        then return $ Just strFile
+        else do
+            fc <- readIORef globalFileCache
+            return $ fmap locatedFilePath $ HashMap.lookup file fc
+
+-- Turn a file search function that operates on Haskell types
+-- into a function suitable for export.
+wrapFind :: (ByteString -> IO (Maybe FilePath))
+            -> Ptr CChar -> Ptr CChar -> CInt -> IO CInt
+wrapFind find inP outP outLen = do
     file <- packCString inP
-    fc <- readIORef globalFileCache
-    case fmap locatedFilePath $ HashMap.lookup file fc of
+    result <- find file
+    case result of
         Nothing -> do
             poke outP 0
             return 0
