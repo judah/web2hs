@@ -27,9 +27,10 @@ Haskell program, without invoking separate executables.
 This package is being provided as a technology preview, and should NOT be considered
 release quality.  It has not been heavily tested and has known bugs; use it at your own risk with documents that you care about.
 
-Furthermore, due to known bugs, it is possible that `web2hs-tex` will behave differently than
-compliant TeX implementations.  As a result, we make no claims that this program yet
-deserves the name "TeX".
+The program `web2hs-tex` currently passes Knuths' TRIP test (see
+`tests/trip/README.md`).  Hypothetically, this suggests that it should produce
+the same output as other TeX implementations.  However, we have not yet done
+further significant testing to verify that fact; so again, use at your own risk.
 
 
 # Installing
