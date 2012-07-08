@@ -70,3 +70,9 @@ The original WEB/Pascal sources were written by Donald E. Knuth and contain indi
 - `web2hs-texware/dvitype.web`  
 - `web2hs-web/weave.web`
 - `web2hs-texware/pooltype.web`
+
+The TRIP test (`tests/trip/`) was written by D. E. Knuth.
+
+The `tie` program (`tie/*`) is included in this repository for
+completeness.  It is currently only used for the TRIP test.  Its license
+may be found in `tie/tie.w`.

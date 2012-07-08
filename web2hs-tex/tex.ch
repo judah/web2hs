@@ -45,14 +45,10 @@ program TEX(user_options);
 % - Don't need the pool_name variable anymore.
 @x
 @!file_name_size=40; {file names shouldn't be longer than this}
-@y
-@!file_name_size=200; {file names shouldn't be longer than this}
-@z
-
-@x
 @!pool_name='TeXformats:TEX.POOL                     ';
   {string of length |file_name_size|; tells where the string pool appears}
 @y
+@!file_name_size=200; {file names shouldn't be longer than this}
 @z
 
 % [31]
