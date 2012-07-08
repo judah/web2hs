@@ -1,9 +1,8 @@
 % [2]
-% We're not TRIP-compliant, so don't claim to be TeX.
 @x
 @d banner=='This is TeX, Version 3.1415926' {printed when \TeX\ starts}
 @y
-@d banner=='This is web2hs-TeX, Version 3.1415926' {printed when \TeX\ starts}
+@d banner=='This is TeX, Version 3.1415926 (web2hs)' {printed when \TeX\ starts}
 @z
 % [4]
 % Program arguments:
